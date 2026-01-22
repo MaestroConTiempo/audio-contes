@@ -18,6 +18,39 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Verificar conexión con Supabase
+
+Para comprobar que la conexión con Supabase está funcionando correctamente, puedes probar el endpoint de salud:
+
+```bash
+# Desde la terminal
+curl http://localhost:3000/api/health/supabase
+
+# O abrir en el navegador
+http://localhost:3000/api/health/supabase
+```
+
+**Respuesta esperada si todo funciona:**
+```json
+{
+  "ok": true,
+  "message": "Conexión con Supabase establecida correctamente"
+}
+```
+
+**Respuesta si hay error:**
+```json
+{
+  "ok": false,
+  "error": "Mensaje de error descriptivo"
+}
+```
+
+> **Nota:** Asegúrate de tener configurado `.env.local` con las variables:
+> - `NEXT_PUBLIC_SUPABASE_URL` (requerida)
+> - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (recomendada) o `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (legacy, mantenida por compatibilidad)
+> - `SUPABASE_SERVICE_ROLE_KEY` (requerida para operaciones de administrador)
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
