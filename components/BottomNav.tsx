@@ -1,4 +1,4 @@
-type NavView = 'home' | 'stories';
+type NavView = 'home' | 'stories' | 'audio';
 
 interface BottomNavProps {
   active: NavView;
@@ -10,6 +10,8 @@ export default function BottomNav({ active, onNavigate }: BottomNavProps) {
     active === 'home' ? 'text-pink-600' : 'text-slate-400 hover:text-slate-700';
   const storiesClass =
     active === 'stories' ? 'text-pink-600' : 'text-slate-400 hover:text-slate-700';
+  const audioClass =
+    active === 'audio' ? 'text-pink-600' : 'text-slate-400 hover:text-slate-700';
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-lg z-40 pb-safe">
@@ -44,7 +46,9 @@ export default function BottomNav({ active, onNavigate }: BottomNavProps) {
 
         <button
           type="button"
-          className="flex flex-col items-center justify-center p-2 text-slate-400 hover:text-slate-700 transition-colors"
+          onClick={() => onNavigate('audio')}
+          className={`flex flex-col items-center justify-center p-2 transition-colors ${audioClass}`}
+          aria-pressed={active === 'audio'}
         >
           <span className="text-2xl">{'\u{1F3B5}'}</span>
           <span className="text-xs mt-1">Audio</span>

@@ -6,7 +6,7 @@ import SelectorModal from '@/components/SelectorModal';
 import BottomNav from '@/components/BottomNav';
 import { storyFields, StoryState, StoryField } from '@/lib/storyData';
 
-type NavView = 'home' | 'stories';
+type NavView = 'home' | 'stories' | 'audio';
 
 interface StoryRecord {
   id: string;
@@ -15,6 +15,11 @@ interface StoryRecord {
   created_at?: string | null;
   status?: string | null;
   inputs?: StoryState;
+  audio?: {
+    audio_url?: string | null;
+    status?: string | null;
+    voice_id?: string | null;
+  } | null;
 }
 
 export default function Home() {
@@ -28,6 +33,7 @@ export default function Home() {
   const [isLoadingStories, setIsLoadingStories] = useState(false);
   const [storiesError, setStoriesError] = useState<string | null>(null);
   const isFetchingStoriesRef = useRef(false);
+  const [voiceId, setVoiceId] = useState('');
 
   const handleCardClick = (fieldId: string) => {
     setActiveField(storyFields[fieldId]);
@@ -90,6 +96,7 @@ export default function Home() {
         };
         setActiveStory(newStory);
         setStories((prev) => [newStory, ...prev.filter((story) => story.id !== newStory.id)]);
+        void triggerAudioGeneration(newStory.id);
       } else {
         throw new Error('No se recibió el cuento generado');
       }
@@ -99,6 +106,61 @@ export default function Home() {
       console.error('Error al generar cuento:', err);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const applyAudioUpdate = (
+    storyId: string,
+    audio: StoryRecord['audio']
+  ) => {
+    setStories((prev) =>
+      prev.map((story) => (story.id === storyId ? { ...story, audio } : story))
+    );
+    setActiveStory((prev) =>
+      prev?.id === storyId ? { ...prev, audio } : prev
+    );
+  };
+
+  const triggerAudioGeneration = async (storyId: string) => {
+    const trimmedVoiceId = voiceId.trim();
+    applyAudioUpdate(storyId, {
+      audio_url: null,
+      status: 'pending',
+      voice_id: trimmedVoiceId || null,
+    });
+
+    try {
+      const payload: { story_id: string; voice_id?: string } = { story_id: storyId };
+      if (trimmedVoiceId) {
+        payload.voice_id = trimmedVoiceId;
+      }
+
+      const response = await fetch('/api/story/audio', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al generar el audio');
+      }
+
+      applyAudioUpdate(storyId, {
+        audio_url: data.audio?.audio_url ?? null,
+        status: data.audio?.status ?? null,
+        voice_id: data.audio?.voice_id ?? null,
+      });
+    } catch (err) {
+      console.error('Error al generar audio:', err);
+      applyAudioUpdate(storyId, {
+        audio_url: null,
+        status: 'error',
+        voice_id: trimmedVoiceId || null,
+      });
     }
   };
 
@@ -134,7 +196,7 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (activeView === 'stories') {
+    if (activeView === 'stories' || activeView === 'audio') {
       loadStories();
     }
   }, [activeView]);
@@ -210,7 +272,11 @@ export default function Home() {
       <header className="bg-white shadow-sm sticky top-0 z-30 border-b border-pink-100">
         <div className="max-w-screen-xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl md:text-3xl font-bold text-pink-600 handwriting">
-            {activeView === 'home' ? 'Compón tu historia' : 'Mis cuentos'}
+            {activeView === 'home'
+              ? 'Compón tu historia'
+              : activeView === 'audio'
+                ? 'Mis audios'
+                : 'Mis cuentos'}
           </h1>
           {activeView === 'home' ? (
             <button
@@ -234,20 +300,37 @@ export default function Home() {
 
       <main className="max-w-screen-xl mx-auto px-4 py-6">
         {activeView === 'home' ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {fieldOrder.map((fieldId) => {
-              const field = storyFields[fieldId];
-              return (
-                <StoryCard
-                  key={fieldId}
-                  title={field.title}
-                  selection={storyState[fieldId] || {}}
-                  onClick={() => handleCardClick(fieldId)}
-                />
-              );
-            })}
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {fieldOrder.map((fieldId) => {
+                const field = storyFields[fieldId];
+                return (
+                  <StoryCard
+                    key={fieldId}
+                    title={field.title}
+                    selection={storyState[fieldId] || {}}
+                    onClick={() => handleCardClick(fieldId)}
+                  />
+                );
+              })}
+            </div>
+            <div className="bg-white border border-pink-100 rounded-2xl p-5">
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                Voice ID (opcional)
+              </label>
+              <input
+                type="text"
+                value={voiceId}
+                onChange={(event) => setVoiceId(event.target.value)}
+                placeholder="Ej: 21m00Tcm4TlvDq8ikWAM"
+                className="w-full px-4 py-3 border-2 border-slate-200 rounded-2xl focus:border-pink-400 focus:outline-none text-slate-800"
+              />
+              <p className="text-xs text-slate-400 mt-2">
+                Si lo dejas vacio, se usa el voice_id por defecto del servidor.
+              </p>
+            </div>
           </div>
-        ) : (
+        ) : activeView === 'stories' ? (
           <div className="space-y-4">
             {storiesError && (
               <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4">
@@ -295,6 +378,79 @@ export default function Home() {
                   );
                 })}
               </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {storiesError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4">
+                {storiesError}
+              </div>
+            )}
+
+            {isLoadingStories ? (
+              <p className="text-slate-500">Cargando audios...</p>
+            ) : (
+              (() => {
+                const audioStories = stories.filter(
+                  (story) =>
+                    story.audio &&
+                    (story.audio.audio_url ||
+                      story.audio.status === 'pending' ||
+                      story.audio.status === 'error')
+                );
+
+                if (audioStories.length === 0) {
+                  return (
+                    <div className="bg-white border border-pink-100 rounded-2xl p-6 text-slate-600">
+                      Todavia no hay audios creados. Genera un cuento y activa el audio.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid gap-4">
+                    {audioStories.map((story) => {
+                      const storyDate = formatStoryDate(story.created_at);
+                      return (
+                        <div
+                          key={story.id}
+                          className="bg-white rounded-2xl border border-pink-100 p-5 shadow-sm"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <h3 className="text-lg font-semibold text-slate-800">
+                                {story.title}
+                              </h3>
+                              {storyDate && (
+                                <p className="text-xs text-slate-400 mt-1">{storyDate}</p>
+                              )}
+                            </div>
+                            <span className="text-xs text-slate-400 uppercase tracking-wide">
+                              {story.audio?.status || 'audio'}
+                            </span>
+                          </div>
+                          <div className="mt-4">
+                            {story.audio?.audio_url ? (
+                              <audio
+                                controls
+                                src={story.audio.audio_url || undefined}
+                                className="w-full"
+                              />
+                            ) : story.audio?.status === 'pending' ? (
+                              <p className="text-sm text-slate-500">Generando audio...</p>
+                            ) : story.audio?.status === 'error' ? (
+                              <p className="text-sm text-red-500">Error al generar el audio.</p>
+                            ) : (
+                              <p className="text-sm text-slate-500">Audio no disponible.</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()
             )}
           </div>
         )}
@@ -351,6 +507,21 @@ export default function Home() {
                 <div className="prose prose-lg max-w-none">
                   <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
                     {renderStoryText(activeStory?.story_text)}
+                  </div>
+                  <div className="mt-6">
+                    {activeStory?.audio?.audio_url ? (
+                      <audio
+                        controls
+                        src={activeStory.audio.audio_url || undefined}
+                        className="w-full"
+                      />
+                    ) : activeStory?.audio?.status === 'pending' ? (
+                      <p className="text-sm text-slate-500">Generando audio...</p>
+                    ) : activeStory?.audio?.status === 'error' ? (
+                      <p className="text-sm text-red-500">Error al generar el audio.</p>
+                    ) : (
+                      <p className="text-sm text-slate-500">Audio no disponible.</p>
+                    )}
                   </div>
                 </div>
               )}
