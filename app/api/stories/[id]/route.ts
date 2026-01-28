@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const DEFAULT_AUDIO_BUCKET = 'audios';
@@ -7,11 +7,12 @@ const getAudioBucket = () =>
   process.env.ELEVENLABS_AUDIO_BUCKET || DEFAULT_AUDIO_BUCKET;
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id?: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   const urlId = new URL(request.url).pathname.split('/').pop();
-  const storyId = params.id?.trim() || urlId?.trim();
+  const storyId = resolvedParams.id?.trim() || urlId?.trim();
 
   if (!storyId) {
     return NextResponse.json({ error: 'ID de cuento requerido' }, { status: 400 });

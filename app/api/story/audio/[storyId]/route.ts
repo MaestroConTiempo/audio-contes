@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const DEFAULT_AUDIO_BUCKET = 'audios';
@@ -7,11 +7,12 @@ const getAudioBucket = () =>
   process.env.ELEVENLABS_AUDIO_BUCKET || DEFAULT_AUDIO_BUCKET;
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: { storyId?: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ storyId: string }> }
 ) {
+  const resolvedParams = await params;
   const urlId = new URL(request.url).pathname.split('/').pop();
-  const storyId = params.storyId?.trim() || urlId?.trim();
+  const storyId = resolvedParams.storyId?.trim() || urlId?.trim();
 
   if (!storyId) {
     return NextResponse.json({ error: 'story_id requerido' }, { status: 400 });
