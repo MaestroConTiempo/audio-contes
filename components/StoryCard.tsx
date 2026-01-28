@@ -7,6 +7,8 @@ interface StoryCardProps {
 }
 
 export default function StoryCard({ title, selection, onClick }: StoryCardProps) {
+  const hasSelection = Boolean(selection.optionId || selection.freeText);
+
   return (
     <div
       onClick={onClick}
@@ -17,13 +19,13 @@ export default function StoryCard({ title, selection, onClick }: StoryCardProps)
       </div>
 
       <div className="p-6 flex flex-col items-center justify-center min-h-[160px]">
-        {selection.optionId ? (
+        {hasSelection ? (
           <>
             <div className="w-16 h-16 bg-gradient-to-br from-pink-200 to-purple-200 rounded-full flex items-center justify-center text-3xl mb-3">
-              {selection.icon || '✨'}
+              {selection.icon || (selection.freeText ? '✍️' : '✨')}
             </div>
             <p className="text-slate-800 font-medium text-center">
-              {selection.optionName}
+              {selection.optionName || selection.freeText}
             </p>
             {selection.customName && (
               <p className="text-slate-600 text-sm mt-1">

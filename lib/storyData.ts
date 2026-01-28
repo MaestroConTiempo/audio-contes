@@ -9,6 +9,8 @@ export interface StoryField {
   title: string;
   required: boolean;
   needsName: boolean;
+  inputType?: 'select' | 'text';
+  placeholder?: string;
   options: StoryOption[];
 }
 
@@ -25,6 +27,7 @@ export const storyFields: Record<string, StoryField> = {
       { id: 'dad', name: 'Un papá', icon: '👨' },
       { id: 'grandma', name: 'Una abuela', icon: '👵' },
       { id: 'grandpa', name: 'Un abuelo', icon: '👴' },
+      { id: 'custom', name: 'Mi propio héroe', icon: '🦸' },
     ],
   },
   sidekick: {
@@ -39,6 +42,7 @@ export const storyFields: Record<string, StoryField> = {
       { id: 'snake', name: 'Una serpiente', icon: '🐍' },
       { id: 'rabbit', name: 'Un conejo', icon: '🐰' },
       { id: 'bird', name: 'Un pájaro', icon: '🐦' },
+      { id: 'custom', name: 'Mi propio personaje', icon: '✨' },
     ],
   },
   object: {
@@ -53,6 +57,7 @@ export const storyFields: Record<string, StoryField> = {
       { id: 'flashlight', name: 'Una linterna', icon: '🔦' },
       { id: 'key', name: 'Una llave', icon: '🔑' },
       { id: 'book', name: 'Un libro', icon: '📖' },
+      { id: 'custom', name: 'Mi propio objeto', icon: '🧰' },
     ],
   },
   place: {
@@ -67,20 +72,27 @@ export const storyFields: Record<string, StoryField> = {
       { id: 'beach', name: 'Una playa', icon: '🏖️' },
       { id: 'mountain', name: 'Una montaña', icon: '⛰️' },
       { id: 'castle', name: 'Un castillo', icon: '🏰' },
+      { id: 'custom', name: 'Mi propio lugar', icon: '🧭' },
     ],
   },
   moral: {
     id: 'moral',
-    title: 'La moral',
+    title: '¿Qué pasará?',
     required: false,
     needsName: false,
+    inputType: 'text',
+    placeholder: 'Ej: El héroe debe encontrar un mapa y ayudar a su amiga.',
+    options: [],
+  },
+  language: {
+    id: 'language',
+    title: 'Idioma*',
+    required: true,
+    needsName: false,
     options: [
-      { id: 'brave', name: 'Ser valiente', icon: '💪' },
-      { id: 'share', name: 'Compartir', icon: '🤝' },
-      { id: 'help', name: 'Pedir ayuda', icon: '🙋' },
-      { id: 'kind', name: 'Ser amable', icon: '💖' },
-      { id: 'honest', name: 'Ser honesto', icon: '✨' },
-      { id: 'patient', name: 'Ser paciente', icon: '⏳' },
+      { id: 'es', name: 'Español', icon: '🇪🇸' },
+      { id: 'ca', name: 'Català', icon: '🏴' },
+      { id: 'en', name: 'English', icon: '🇺🇸' },
     ],
   },
   narrator: {
@@ -89,10 +101,9 @@ export const storyFields: Record<string, StoryField> = {
     required: true,
     needsName: false,
     options: [
-      { id: 'julia', name: 'Julia', icon: '👩‍🦰' },
-      { id: 'leo', name: 'Leo', icon: '👨‍🦱' },
-      { id: 'luna', name: 'Luna', icon: '👧' },
-      { id: 'mateo', name: 'Mateo', icon: '👦' },
+      { id: 'OPFGXzbjTxC8s9nJbglQ', name: 'Rubén', icon: '🧔' },
+      { id: 'tXgbXPnsMpKXkuTgvE3h', name: 'Elena', icon: '👩' },
+      { id: '6Kc26SMEaG6swH53OgIE', name: 'Una ratita', icon: '🐭' },
     ],
   },
 };
@@ -101,6 +112,7 @@ export interface StorySelection {
   optionId?: string;
   optionName?: string;
   customName?: string;
+  freeText?: string;
   icon?: string;
 }
 

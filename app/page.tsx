@@ -33,7 +33,8 @@ export default function Home() {
   const [isLoadingStories, setIsLoadingStories] = useState(false);
   const [storiesError, setStoriesError] = useState<string | null>(null);
   const isFetchingStoriesRef = useRef(false);
-  const [voiceId, setVoiceId] = useState('');
+  const [deletingStories, setDeletingStories] = useState<Record<string, boolean>>({});
+  const [deletingAudios, setDeletingAudios] = useState<Record<string, boolean>>({});
 
   const handleCardClick = (fieldId: string) => {
     setActiveField(storyFields[fieldId]);
@@ -54,11 +55,9 @@ export default function Home() {
   };
 
   const isFormComplete = () => {
-    return (
-      storyState.hero?.optionId &&
-      storyState.place?.optionId &&
-      storyState.narrator?.optionId
-    );
+    return Object.values(storyFields)
+      .filter((field) => field.required)
+      .every((field) => storyState[field.id]?.optionId);
   };
 
   const handleConfirm = async () => {
@@ -88,7 +87,7 @@ export default function Home() {
       if (data.success && data.story?.story_text) {
         const newStory: StoryRecord = {
           id: data.story.id,
-          title: data.story.title || 'Cuento infantil',
+          title: data.story.title ?? '',
           story_text: data.story.story_text,
           created_at: data.story.created_at ?? null,
           status: data.story.status ?? null,
@@ -122,7 +121,7 @@ export default function Home() {
   };
 
   const triggerAudioGeneration = async (storyId: string) => {
-    const trimmedVoiceId = voiceId.trim();
+    const trimmedVoiceId = storyState.narrator?.optionId?.trim() || '';
     applyAudioUpdate(storyId, {
       audio_url: null,
       status: 'pending',
@@ -167,6 +166,63 @@ export default function Home() {
   const handleCloseStory = () => {
     setActiveStory(null);
     setError(null);
+  };
+
+  const handleDeleteStory = async (storyId: string) => {
+    if (!confirm('¿Seguro que quieres eliminar este cuento?')) {
+      return;
+    }
+
+    setDeletingStories((prev) => ({ ...prev, [storyId]: true }));
+    setStoriesError(null);
+
+    try {
+      const response = await fetch(`/api/stories/${storyId}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al eliminar el cuento');
+      }
+
+      setStories((prev) => prev.filter((story) => story.id !== storyId));
+      if (activeStory?.id === storyId) {
+        setActiveStory(null);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      setStoriesError(errorMessage);
+    } finally {
+      setDeletingStories((prev) => ({ ...prev, [storyId]: false }));
+    }
+  };
+
+  const handleDeleteAudio = async (storyId: string) => {
+    if (!confirm('¿Seguro que quieres eliminar este audio?')) {
+      return;
+    }
+
+    setDeletingAudios((prev) => ({ ...prev, [storyId]: true }));
+    setStoriesError(null);
+
+    try {
+      const response = await fetch(`/api/story/audio/${storyId}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al eliminar el audio');
+      }
+
+      applyAudioUpdate(storyId, null);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      setStoriesError(errorMessage);
+    } finally {
+      setDeletingAudios((prev) => ({ ...prev, [storyId]: false }));
+    }
   };
 
   const loadStories = async () => {
@@ -265,7 +321,7 @@ export default function Home() {
     ));
   };
 
-  const fieldOrder = ['hero', 'sidekick', 'object', 'place', 'moral', 'narrator'];
+  const fieldOrder = ['hero', 'sidekick', 'object', 'place', 'moral', 'language', 'narrator'];
 
   return (
     <div className="min-h-screen bg-pink-50 pb-32">
@@ -314,21 +370,6 @@ export default function Home() {
                 );
               })}
             </div>
-            <div className="bg-white border border-pink-100 rounded-2xl p-5">
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Voice ID (opcional)
-              </label>
-              <input
-                type="text"
-                value={voiceId}
-                onChange={(event) => setVoiceId(event.target.value)}
-                placeholder="Ej: 21m00Tcm4TlvDq8ikWAM"
-                className="w-full px-4 py-3 border-2 border-slate-200 rounded-2xl focus:border-pink-400 focus:outline-none text-slate-800"
-              />
-              <p className="text-xs text-slate-400 mt-2">
-                Si lo dejas vacio, se usa el voice_id por defecto del servidor.
-              </p>
-            </div>
           </div>
         ) : activeView === 'stories' ? (
           <div className="space-y-4">
@@ -348,6 +389,7 @@ export default function Home() {
               <div className="grid gap-4">
                 {stories.map((story) => {
                   const storyDate = formatStoryDate(story.created_at);
+                  const isDeleting = Boolean(deletingStories[story.id]);
                   return (
                     <button
                       key={story.id}
@@ -358,19 +400,26 @@ export default function Home() {
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <h3 className="text-lg font-semibold text-slate-800">
-                            {story.title}
+                            {story.title || 'Cuento infantil'}
                           </h3>
                           {storyDate && (
                             <p className="text-xs text-slate-400 mt-1">{storyDate}</p>
                           )}
                         </div>
-                        <span className="text-xs text-slate-400 uppercase tracking-wide">
-                          {story.status || 'guardado'}
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleDeleteStory(story.id);
+                            }}
+                            disabled={isDeleting}
+                            className="text-xs font-semibold text-red-500 hover:text-red-600 disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-sm text-slate-600 mt-3 max-h-24 overflow-hidden">
-                        {story.story_text}
-                      </p>
                       <div className="mt-3 text-pink-600 text-sm font-semibold">
                         Leer cuento
                       </div>
@@ -420,15 +469,25 @@ export default function Home() {
                           <div className="flex items-start justify-between gap-4">
                             <div>
                               <h3 className="text-lg font-semibold text-slate-800">
-                                {story.title}
+                                {story.title || 'Cuento infantil'}
                               </h3>
                               {storyDate && (
                                 <p className="text-xs text-slate-400 mt-1">{storyDate}</p>
                               )}
                             </div>
-                            <span className="text-xs text-slate-400 uppercase tracking-wide">
-                              {story.audio?.status || 'audio'}
-                            </span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-slate-400 uppercase tracking-wide">
+                                {story.audio?.status || 'audio'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAudio(story.id)}
+                                disabled={Boolean(deletingAudios[story.id])}
+                                className="text-xs font-semibold text-red-500 hover:text-red-600 disabled:opacity-60 disabled:cursor-not-allowed"
+                              >
+                                {deletingAudios[story.id] ? 'Eliminando...' : 'Eliminar'}
+                              </button>
+                            </div>
                           </div>
                           <div className="mt-4">
                             {story.audio?.audio_url ? (

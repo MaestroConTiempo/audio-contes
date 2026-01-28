@@ -54,13 +54,6 @@ export default function BottomNav({ active, onNavigate }: BottomNavProps) {
           <span className="text-xs mt-1">Audio</span>
         </button>
 
-        <button
-          type="button"
-          className="flex flex-col items-center justify-center p-2 text-slate-400 hover:text-slate-700 transition-colors"
-        >
-          <span className="text-2xl">{'\u2699\uFE0F'}</span>
-          <span className="text-xs mt-1">Ajustes</span>
-        </button>
       </div>
     </nav>
   );

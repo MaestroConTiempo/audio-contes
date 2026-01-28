@@ -12,14 +12,15 @@ function formatStoryStateToMessage(storyState: StoryState): string {
     sidekick: 'Personaje secundario',
     object: 'Objeto',
     place: 'Lugar',
-    moral: 'Moral',
+    moral: '¿Qué pasará?',
+    language: 'Idioma',
     narrator: 'Narrador',
   };
 
   const parts: string[] = ['Genera un cuento infantil con estos elementos:'];
   
   // Orden de campos para el mensaje
-  const fieldOrder = ['hero', 'sidekick', 'object', 'place', 'moral', 'narrator'];
+  const fieldOrder = ['hero', 'sidekick', 'object', 'place', 'moral', 'language', 'narrator'];
   
   for (const fieldId of fieldOrder) {
     const selection = storyState[fieldId];
@@ -33,7 +34,15 @@ function formatStoryStateToMessage(storyState: StoryState): string {
       }
       
       parts.push(text);
+    } else if (fieldId === 'moral' && selection?.freeText) {
+      const label = fieldLabels[fieldId] || fieldId;
+      parts.push(`- ${label}: ${selection.freeText}`);
     }
+  }
+
+  const selectedLanguage = storyState.language?.optionName;
+  if (selectedLanguage) {
+    parts.push(`Redacta el cuento en ${selectedLanguage}.`);
   }
   
   return parts.join('\n');
@@ -199,6 +208,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const rawLines = storyText.split('\n');
+    let extractedTitle = '';
+    const storyLines: string[] = [];
+    let hasTitle = false;
+
+    for (const line of rawLines) {
+      if (!hasTitle && line.trim() !== '') {
+        extractedTitle = line.trim();
+        hasTitle = true;
+        continue;
+      }
+      if (hasTitle) {
+        if (storyLines.length === 0 && line.trim() === '') {
+          continue;
+        }
+        storyLines.push(line);
+      }
+    }
+
+    storyText = storyLines.join('\n');
+
     // 6. Guardar el cuento en Supabase
     const supabase = createSupabaseAdminClient();
     const insertPayload: {
@@ -208,7 +238,7 @@ export async function POST(request: NextRequest) {
       story_text: string;
       status: string;
     } = {
-      title: getStoryTitle(storyState),
+      title: extractedTitle,
       inputs: storyState,
       story_text: storyText,
       status: 'generated',
