@@ -344,20 +344,22 @@ export default function Home() {
     generationState === 'generating_story' || generationState === 'generating_audio';
 
   return (
-    <div className="min-h-screen bg-pink-50 pb-32">
-      <header className="bg-white shadow-sm sticky top-0 z-30 border-b border-pink-100">
+    <div className="min-h-screen bg-[url('/Interfaz.png')] bg-cover bg-center pb-32">
+            <header className="bg-transparent sticky top-0 z-30">
         <div className="max-w-screen-xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl md:text-3xl font-bold text-pink-600 handwriting">
-            {activeView === 'home'
-              ? 'Crea tu historia única'
-              : activeView === 'audio'
-                ? 'Mis audios'
-                : 'Mis cuentos'}
-          </h1>
+          <div className="px-4 py-2 rounded-2xl bg-white/70 backdrop-blur-md border border-white/60 shadow-sm">
+            <h1 className="text-2xl md:text-3xl font-bold text-pink-600 handwriting">
+              {activeView === 'home'
+                ? 'Crea tu historia única'
+                : activeView === 'audio'
+                  ? 'Mis audios'
+                  : 'Mis cuentos'}
+            </h1>
+          </div>
           {activeView === 'home' ? (
             <button
               onClick={handleReset}
-              className="p-2 rounded-full hover:bg-pink-100 transition-colors"
+              className="p-2 rounded-full bg-white/70 backdrop-blur-md border border-white/60 shadow-sm hover:bg-white/80 transition-colors"
               title="Reiniciar"
             >
               <span className="text-2xl">🔄</span>
@@ -365,7 +367,7 @@ export default function Home() {
           ) : (
             <button
               onClick={loadStories}
-              className="p-2 rounded-full hover:bg-pink-100 transition-colors"
+              className="p-2 rounded-full bg-white/70 backdrop-blur-md border border-white/60 shadow-sm hover:bg-white/80 transition-colors"
               title="Actualizar"
             >
               <span className="text-2xl">🔁</span>
@@ -377,7 +379,8 @@ export default function Home() {
       <main className="max-w-screen-xl mx-auto px-4 py-6 pb-40">
         {activeView === 'home' ? (
           <div className="space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="rounded-3xl bg-white/40 backdrop-blur-md p-6 md:p-8 shadow-inner border border-white/70">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {fieldOrder.map((fieldId) => {
                 const field = storyFields[fieldId];
                 return (
@@ -390,6 +393,7 @@ export default function Home() {
                   />
                 );
               })}
+              </div>
             </div>
           </div>
         ) : activeView === 'stories' ? (
@@ -404,7 +408,7 @@ export default function Home() {
               <p className="text-slate-500">Cargando cuentos...</p>
             ) : stories.length === 0 ? (
               <div className="bg-white border border-pink-100 rounded-2xl p-6 text-slate-600">
-                TodavÃ­a no hay cuentos guardados. Genera uno y aparecerÃ¡ aquÃ­.
+                Aún no has creado ningún cuento. Crea uno y aparecerá aquí.
               </div>
             ) : (
               <div className="grid gap-4">
@@ -536,21 +540,12 @@ export default function Home() {
         )}
       </main>
 
-      {activeView === 'home' && (
-        <div className="fixed bottom-20 left-0 right-0 px-4 z-30 md:bottom-24">
-          <div className="max-w-screen-xl mx-auto">
-            <button
-              onClick={handleConfirm}
-              disabled={!isFormComplete() || isBlocking}
-              className="w-full md:w-auto md:min-w-[300px] md:mx-auto md:block px-8 py-4 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-lg font-bold rounded-full shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-2xl hover:-translate-y-1 hover:scale-[1.03] active:translate-y-1 active:scale-[0.96] transition-all duration-200 disabled:hover:shadow-lg disabled:hover:translate-y-0 disabled:hover:scale-100 disabled:active:scale-100"
-            >
-              {isBlocking ? 'Generando... ⏳' : 'Crear la historia ▶︎'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      <BottomNav active={activeView} onNavigate={setActiveView} />
+      <BottomNav
+        active={activeView}
+        onNavigate={setActiveView}
+        onCreate={handleConfirm}
+        createDisabled={!isFormComplete() || isBlocking}
+      />
 
       {activeField && (
         <SelectorModal
@@ -618,6 +613,10 @@ export default function Home() {
     </div>
   );
 }
+
+
+
+
 
 
 

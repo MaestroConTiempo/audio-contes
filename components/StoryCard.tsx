@@ -18,16 +18,16 @@ export default function StoryCard({
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-3xl shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+      className="bg-white/85 backdrop-blur-sm rounded-3xl shadow-md border border-white/70 overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
     >
-      <div className="bg-slate-300 px-4 py-3">
-        <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
+      <div className="bg-white/80 px-4 py-3 border-b border-white/60">
+        <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
       </div>
 
       <div className="p-6 flex flex-col items-center justify-center min-h-[160px]">
         {hasSelection ? (
           <>
-            <div className="w-16 h-16 bg-gradient-to-br from-pink-200 to-purple-200 rounded-full flex items-center justify-center text-3xl mb-3 overflow-hidden">
+            <div className="w-16 h-16 bg-gradient-to-br from-pink-200/90 to-purple-200/90 rounded-full flex items-center justify-center text-3xl mb-3 overflow-hidden shadow-sm">
               {selection.image ? (
                 <img
                   src={selection.image}
@@ -49,7 +49,7 @@ export default function StoryCard({
           </>
         ) : (
           <>
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-3xl mb-3">
+            <div className="w-16 h-16 bg-white/80 rounded-full flex items-center justify-center text-3xl mb-3 shadow-sm">
               <span>{cardIcon || '❔'}</span>
             </div>
             <p className="text-slate-400 text-center">Elije una opción...</p>
