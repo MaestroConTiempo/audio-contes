@@ -55,6 +55,7 @@ export default function SelectorModal({
       optionId: selectedOption.id,
       optionName: selectedOption.name,
       icon: selectedOption.icon,
+      image: selectedOption.image,
     };
 
     if (selectedOption.id === 'custom') {
@@ -109,7 +110,15 @@ export default function SelectorModal({
                         : 'border-slate-200 hover:border-pink-300 hover:bg-pink-50'
                     }`}
                   >
-                    <div className="text-4xl mb-2">{option.icon}</div>
+                    {option.image ? (
+                      <img
+                        src={option.image}
+                        alt={option.name}
+                        className="w-12 h-12 mx-auto mb-2"
+                      />
+                    ) : (
+                      <div className="text-4xl mb-2">{option.icon}</div>
+                    )}
                     <p className="text-sm font-medium text-slate-700 text-center">
                       {option.name}
                     </p>

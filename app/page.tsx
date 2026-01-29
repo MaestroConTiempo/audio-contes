@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import StoryCard from '@/components/StoryCard';
 import SelectorModal from '@/components/SelectorModal';
 import BottomNav from '@/components/BottomNav';
+import GenerationLoader from '@/components/GenerationLoader';
 import { storyFields, StoryState, StoryField } from '@/lib/storyData';
 
 type NavView = 'home' | 'stories' | 'audio';
@@ -25,7 +26,9 @@ interface StoryRecord {
 export default function Home() {
   const [storyState, setStoryState] = useState<StoryState>({});
   const [activeField, setActiveField] = useState<StoryField | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationState, setGenerationState] = useState<
+    'idle' | 'generating_story' | 'generating_audio' | 'done' | 'error'
+  >('idle');
   const [activeStory, setActiveStory] = useState<StoryRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<NavView>('home');
@@ -37,6 +40,9 @@ export default function Home() {
   const [deletingAudios, setDeletingAudios] = useState<Record<string, boolean>>({});
 
   const handleCardClick = (fieldId: string) => {
+    if (generationState === 'generating_story' || generationState === 'generating_audio') {
+      return;
+    }
     setActiveField(storyFields[fieldId]);
   };
 
@@ -52,6 +58,7 @@ export default function Home() {
 
   const handleReset = () => {
     setStoryState({});
+    setGenerationState('idle');
   };
 
   const isFormComplete = () => {
@@ -65,7 +72,7 @@ export default function Home() {
       return;
     }
 
-    setIsGenerating(true);
+    setGenerationState('generating_story');
     setError(null);
     setActiveStory(null);
 
@@ -95,16 +102,22 @@ export default function Home() {
         };
         setActiveStory(newStory);
         setStories((prev) => [newStory, ...prev.filter((story) => story.id !== newStory.id)]);
-        void triggerAudioGeneration(newStory.id);
+        setGenerationState('generating_audio');
+        const audioOk = await triggerAudioGeneration(newStory.id);
+        if (audioOk) {
+          setGenerationState('done');
+        } else {
+          setGenerationState('error');
+          setError('No se pudo generar el audio. Intentalo de nuevo.');
+        }
       } else {
         throw new Error('No se recibió el cuento generado');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
       setError(errorMessage);
+      setGenerationState('error');
       console.error('Error al generar cuento:', err);
-    } finally {
-      setIsGenerating(false);
     }
   };
 
@@ -153,6 +166,7 @@ export default function Home() {
         status: data.audio?.status ?? null,
         voice_id: data.audio?.voice_id ?? null,
       });
+      return true;
     } catch (err) {
       console.error('Error al generar audio:', err);
       applyAudioUpdate(storyId, {
@@ -160,12 +174,16 @@ export default function Home() {
         status: 'error',
         voice_id: trimmedVoiceId || null,
       });
+      return false;
     }
   };
 
   const handleCloseStory = () => {
     setActiveStory(null);
     setError(null);
+    if (generationState === 'error' || generationState === 'done') {
+      setGenerationState('idle');
+    }
   };
 
   const handleDeleteStory = async (storyId: string) => {
@@ -322,6 +340,8 @@ export default function Home() {
   };
 
   const fieldOrder = ['hero', 'sidekick', 'object', 'place', 'moral', 'language', 'narrator'];
+  const isBlocking =
+    generationState === 'generating_story' || generationState === 'generating_audio';
 
   return (
     <div className="min-h-screen bg-pink-50 pb-32">
@@ -329,7 +349,7 @@ export default function Home() {
         <div className="max-w-screen-xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl md:text-3xl font-bold text-pink-600 handwriting">
             {activeView === 'home'
-              ? 'Compón tu historia'
+              ? 'Crea tu historia única'
               : activeView === 'audio'
                 ? 'Mis audios'
                 : 'Mis cuentos'}
@@ -354,7 +374,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-screen-xl mx-auto px-4 py-6">
+      <main className="max-w-screen-xl mx-auto px-4 py-6 pb-40">
         {activeView === 'home' ? (
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -365,6 +385,7 @@ export default function Home() {
                     key={fieldId}
                     title={field.title}
                     selection={storyState[fieldId] || {}}
+                    cardIcon={field.cardIcon}
                     onClick={() => handleCardClick(fieldId)}
                   />
                 );
@@ -520,10 +541,10 @@ export default function Home() {
           <div className="max-w-screen-xl mx-auto">
             <button
               onClick={handleConfirm}
-              disabled={!isFormComplete() || isGenerating}
-              className="w-full md:w-auto md:min-w-[300px] md:mx-auto md:block px-8 py-4 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-lg font-bold rounded-full shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-xl transition-all disabled:hover:shadow-lg"
+              disabled={!isFormComplete() || isBlocking}
+              className="w-full md:w-auto md:min-w-[300px] md:mx-auto md:block px-8 py-4 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-lg font-bold rounded-full shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-2xl hover:-translate-y-1 hover:scale-[1.03] active:translate-y-1 active:scale-[0.96] transition-all duration-200 disabled:hover:shadow-lg disabled:hover:translate-y-0 disabled:hover:scale-100 disabled:active:scale-100"
             >
-              {isGenerating ? 'Generando... ⏳' : 'Confirmar ▶︎'}
+              {isBlocking ? 'Generando... ⏳' : 'Crear la historia ▶︎'}
             </button>
           </div>
         </div>
@@ -540,8 +561,14 @@ export default function Home() {
         />
       )}
 
+      {isBlocking && (
+        <GenerationLoader
+          phase={generationState === 'generating_story' ? 'story' : 'audio'}
+        />
+      )}
+
       {/* Modal para mostrar el cuento generado */}
-      {(activeStory || error) && (
+      {(error || (activeStory && generationState === 'done')) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-pink-100 px-6 py-4 flex items-center justify-between">
@@ -591,3 +618,10 @@ export default function Home() {
     </div>
   );
 }
+
+
+
+
+
+
+
