@@ -516,11 +516,45 @@ export default function Home() {
                           </div>
                           <div className="mt-4">
                             {story.audio?.audio_url ? (
-                              <audio
-                                controls
-                                src={story.audio.audio_url || undefined}
-                                className="w-full"
-                              />
+                              <div className="space-y-3">
+                                <audio
+                                  controls
+                                  src={story.audio.audio_url || undefined}
+                                  className="w-full"
+                                />
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <a
+                                    href={story.audio.audio_url}
+                                    download
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-pink-500 text-white text-sm font-semibold shadow-sm hover:bg-pink-600 transition-colors"
+                                  >
+                                    Descargar audio
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (!story.audio?.audio_url) return;
+                                      if (typeof navigator !== 'undefined' && 'share' in navigator) {
+                                        try {
+                                          await navigator.share({
+                                            title: story.title || 'Mi cuento',
+                                            url: story.audio.audio_url,
+                                          });
+                                        } catch {
+                                          // Ignore cancel/share errors
+                                        }
+                                      } else {
+                                        window.open(story.audio.audio_url, '_blank');
+                                      }
+                                    }}
+                                    className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-white/80 text-pink-600 text-sm font-semibold border border-pink-200 shadow-sm hover:bg-white transition-colors"
+                                  >
+                                    Compartir
+                                  </button>
+                                </div>
+                              </div>
                             ) : story.audio?.status === 'pending' ? (
                               <p className="text-sm text-slate-500">Generando audio...</p>
                             ) : story.audio?.status === 'error' ? (
@@ -563,7 +597,10 @@ export default function Home() {
       )}
 
       {/* Modal para mostrar el cuento generado */}
-      {(error || (activeStory && generationState === 'done')) && (
+      {(error ||
+        (activeStory &&
+          generationState !== 'generating_story' &&
+          generationState !== 'generating_audio')) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-pink-100 px-6 py-4 flex items-center justify-between">
@@ -591,11 +628,46 @@ export default function Home() {
                   </div>
                   <div className="mt-6">
                     {activeStory?.audio?.audio_url ? (
-                      <audio
-                        controls
-                        src={activeStory.audio.audio_url || undefined}
-                        className="w-full"
-                      />
+                      <div className="space-y-3">
+                        <audio
+                          controls
+                          src={activeStory.audio.audio_url || undefined}
+                          className="w-full"
+                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <a
+                            href={activeStory.audio.audio_url || undefined}
+                            download
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-pink-500 text-white text-sm font-semibold shadow-sm hover:bg-pink-600 transition-colors"
+                          >
+                            Descargar audio
+                          </a>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const audioUrl = activeStory.audio?.audio_url;
+                              if (!audioUrl) return;
+                              if (typeof navigator !== 'undefined' && 'share' in navigator) {
+                                try {
+                                  await navigator.share({
+                                    title: activeStory.title || 'Mi cuento',
+                                    url: audioUrl,
+                                  });
+                                } catch {
+                                  // Ignore cancel/share errors
+                                }
+                              } else {
+                                window.open(audioUrl, '_blank');
+                              }
+                            }}
+                            className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-white/80 text-pink-600 text-sm font-semibold border border-pink-200 shadow-sm hover:bg-white transition-colors"
+                          >
+                            Compartir
+                          </button>
+                        </div>
+                      </div>
                     ) : activeStory?.audio?.status === 'pending' ? (
                       <p className="text-sm text-slate-500">Generando audio...</p>
                     ) : activeStory?.audio?.status === 'error' ? (
