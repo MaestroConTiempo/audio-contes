@@ -380,7 +380,7 @@ export default function Home() {
         {activeView === 'home' ? (
           <div className="space-y-6">
             <div className="rounded-3xl bg-white/40 backdrop-blur-md p-6 md:p-8 shadow-inner border border-white/70">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
               {fieldOrder.map((fieldId) => {
                 const field = storyFields[fieldId];
                 return (
