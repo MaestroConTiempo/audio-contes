@@ -16,8 +16,31 @@ const parseNumberEnv = (value: string | undefined, fallback: number) => {
   return Number.isNaN(parsed) ? fallback : parsed;
 };
 
-const buildAudioErrorResponse = (message: string, status = 500) =>
-  NextResponse.json({ error: message }, { status });
+const buildAudioErrorResponse = (
+  message: string,
+  status = 500,
+  code?: string,
+  detail?: string
+) =>
+  NextResponse.json(
+    {
+      error: message,
+      code,
+      detail,
+    },
+    { status }
+  );
+
+const classifyElevenLabsError = (errorText: string) => {
+  const lower = errorText.toLowerCase();
+  if (lower.includes('quota') || lower.includes('credit') || lower.includes('subscription')) {
+    return { code: 'credits_or_quota', message: 'Créditos insuficientes en ElevenLabs' };
+  }
+  if (lower.includes('character') || lower.includes('characters')) {
+    return { code: 'provider_char_limit', message: 'Límite de caracteres de ElevenLabs' };
+  }
+  return { code: 'elevenlabs_error', message: 'Error al generar audio' };
+};
 
 export async function POST(request: NextRequest) {
   const supabase = createSupabaseAdminClient();
@@ -87,19 +110,24 @@ export async function POST(request: NextRequest) {
 
   if (!effectiveVoiceId) {
     await updateAudioStatus('error');
-    return buildAudioErrorResponse('ELEVENLABS_VOICE_ID no configurado', 500);
+    return buildAudioErrorResponse('ELEVENLABS_VOICE_ID no configurado', 500, 'config_missing');
   }
 
   const maxChars = parseNumberEnv(process.env.ELEVENLABS_MAX_CHARS, DEFAULT_MAX_CHARS);
   if (story.story_text.length > maxChars) {
     await updateAudioStatus('error');
-    return buildAudioErrorResponse('El cuento supera el limite de caracteres para audio', 400);
+    return buildAudioErrorResponse(
+      'El cuento supera el límite de caracteres para audio',
+      400,
+      'max_chars',
+      `Longitud: ${story.story_text.length}. Máximo: ${maxChars}.`
+    );
   }
 
   const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
   if (!elevenLabsApiKey) {
     await updateAudioStatus('error');
-    return buildAudioErrorResponse('ELEVENLABS_API_KEY no configurado', 500);
+    return buildAudioErrorResponse('ELEVENLABS_API_KEY no configurado', 500, 'config_missing');
   }
 
   const controller = new AbortController();
@@ -117,7 +145,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         text: story.story_text,
-        model_id: process.env.ELEVENLABS_MODEL_ID || undefined,
+        model_id: 'eleven_turbo_v2_5',
       }),
       signal: controller.signal,
     });
@@ -126,14 +154,20 @@ export async function POST(request: NextRequest) {
       const errorText = await response.text();
       console.error('Error ElevenLabs:', response.status, errorText);
       await updateAudioStatus('error');
-      return buildAudioErrorResponse('Error al generar audio', 502);
+      const classified = classifyElevenLabsError(errorText);
+      return buildAudioErrorResponse(
+        classified.message,
+        502,
+        classified.code,
+        errorText.slice(0, 500)
+      );
     }
 
     audioBuffer = await response.arrayBuffer();
   } catch (error) {
     console.error('Error al llamar a ElevenLabs:', error);
     await updateAudioStatus('error');
-    return buildAudioErrorResponse('Error al llamar a ElevenLabs', 502);
+    return buildAudioErrorResponse('Error al llamar a ElevenLabs', 502, 'elevenlabs_unreachable');
   } finally {
     clearTimeout(timeoutId);
   }

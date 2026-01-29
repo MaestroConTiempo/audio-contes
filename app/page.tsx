@@ -100,15 +100,20 @@ export default function Home() {
           status: data.story.status ?? null,
           inputs: data.story.inputs,
         };
+        const storyLength = newStory.story_text.length;
+        console.log(`Longitud del cuento: ${storyLength} caracteres`);
         setActiveStory(newStory);
         setStories((prev) => [newStory, ...prev.filter((story) => story.id !== newStory.id)]);
         setGenerationState('generating_audio');
-        const audioOk = await triggerAudioGeneration(newStory.id);
-        if (audioOk) {
+        const audioResult = await triggerAudioGeneration(newStory.id);
+        if (audioResult.ok) {
           setGenerationState('done');
         } else {
           setGenerationState('error');
-          setError('No se pudo generar el audio. Intentalo de nuevo.');
+          const lengthInfo = ` (Longitud: ${storyLength} caracteres)`;
+          setError(
+            `${audioResult.errorMessage || 'No se pudo generar el audio. Intentalo de nuevo.'}${lengthInfo}`
+          );
         }
       } else {
         throw new Error('No se recibió el cuento generado');
@@ -158,7 +163,11 @@ export default function Home() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Error al generar el audio');
+        const detail = data?.detail ? ` (${data.detail})` : '';
+        const codeLabel = data?.code ? ` [${data.code}]` : '';
+        throw new Error(
+          `${data.error || 'Error al generar el audio'}${codeLabel}${detail}`
+        );
       }
 
       applyAudioUpdate(storyId, {
@@ -166,15 +175,16 @@ export default function Home() {
         status: data.audio?.status ?? null,
         voice_id: data.audio?.voice_id ?? null,
       });
-      return true;
+      return { ok: true } as const;
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al generar el audio';
       console.error('Error al generar audio:', err);
       applyAudioUpdate(storyId, {
         audio_url: null,
         status: 'error',
         voice_id: trimmedVoiceId || null,
       });
-      return false;
+      return { ok: false, errorMessage } as const;
     }
   };
 
