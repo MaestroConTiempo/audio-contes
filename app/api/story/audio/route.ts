@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const ELEVENLABS_API_BASE = 'https://api.elevenlabs.io/v1/text-to-speech';
+const GENAIPRO_API_BASE = 'https://genaipro.vn/api/v1';
 const DEFAULT_AUDIO_BUCKET = 'audios';
 const DEFAULT_MAX_CHARS = 4000;
 const DEFAULT_TIMEOUT_MS = 60000;
+const DEFAULT_POLL_INTERVAL_MS = 1500;
 
 type AudioStatus = 'pending' | 'ready' | 'error';
 
@@ -14,6 +16,27 @@ const parseNumberEnv = (value: string | undefined, fallback: number) => {
   }
   const parsed = Number.parseInt(value, 10);
   return Number.isNaN(parsed) ? fallback : parsed;
+};
+
+const parseFloatEnv = (value: string | undefined) => {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Number.parseFloat(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
+};
+
+const parseBooleanEnv = (value: string | undefined) => {
+  if (!value) {
+    return undefined;
+  }
+  if (value === 'true' || value === '1') {
+    return true;
+  }
+  if (value === 'false' || value === '0') {
+    return false;
+  }
+  return undefined;
 };
 
 const buildAudioErrorResponse = (
@@ -41,6 +64,22 @@ const classifyElevenLabsError = (errorText: string) => {
   }
   return { code: 'elevenlabs_error', message: 'Error al generar audio' };
 };
+
+const classifyGenaiproError = (errorText: string) => {
+  const lower = errorText.toLowerCase();
+  if (lower.includes('quota') || lower.includes('credit') || lower.includes('balance')) {
+    return { code: 'credits_or_quota', message: 'CrÃ©ditos insuficientes en GenAIPro' };
+  }
+  if (lower.includes('character') || lower.includes('characters') || lower.includes('length')) {
+    return { code: 'provider_char_limit', message: 'LÃ­mite de caracteres de GenAIPro' };
+  }
+  if (lower.includes('unauthorized') || lower.includes('forbidden') || lower.includes('token')) {
+    return { code: 'auth_error', message: 'Token invÃ¡lido o no autorizado en GenAIPro' };
+  }
+  return { code: 'genaipro_error', message: 'Error al generar audio' };
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function POST(request: NextRequest) {
   const supabase = createSupabaseAdminClient();
@@ -71,7 +110,7 @@ export async function POST(request: NextRequest) {
   }
 
   const effectiveVoiceId =
-    voiceIdInput || process.env.ELEVENLABS_VOICE_ID?.trim();
+    voiceIdInput || process.env.GENAIPRO_VOICE_ID?.trim();
 
   const { data: pendingAudio, error: pendingError } = await supabase
     .from('audios')
@@ -110,10 +149,10 @@ export async function POST(request: NextRequest) {
 
   if (!effectiveVoiceId) {
     await updateAudioStatus('error');
-    return buildAudioErrorResponse('ELEVENLABS_VOICE_ID no configurado', 500, 'config_missing');
+    return buildAudioErrorResponse('GENAIPRO_VOICE_ID no configurado', 500, 'config_missing');
   }
 
-  const maxChars = parseNumberEnv(process.env.ELEVENLABS_MAX_CHARS, DEFAULT_MAX_CHARS);
+  const maxChars = parseNumberEnv(process.env.GENAIPRO_MAX_CHARS, DEFAULT_MAX_CHARS);
   if (story.story_text.length > maxChars) {
     await updateAudioStatus('error');
     return buildAudioErrorResponse(
@@ -124,37 +163,63 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey) {
+  const genaiproApiKey = process.env.GENAIPRO_API_KEY;
+  if (!genaiproApiKey) {
     await updateAudioStatus('error');
-    return buildAudioErrorResponse('ELEVENLABS_API_KEY no configurado', 500, 'config_missing');
+    return buildAudioErrorResponse('GENAIPRO_API_KEY no configurado', 500, 'config_missing');
   }
 
   const controller = new AbortController();
-  const timeoutMs = parseNumberEnv(process.env.ELEVENLABS_TIMEOUT_MS, DEFAULT_TIMEOUT_MS);
+  const timeoutMs = parseNumberEnv(process.env.GENAIPRO_TIMEOUT_MS, DEFAULT_TIMEOUT_MS);
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const pollIntervalMs = parseNumberEnv(process.env.GENAIPRO_POLL_INTERVAL_MS, DEFAULT_POLL_INTERVAL_MS);
+
+  const modelId = process.env.GENAIPRO_MODEL_ID?.trim() || 'eleven_multilingual_v2';
+  const style = parseFloatEnv(process.env.GENAIPRO_STYLE);
+  const speed = parseFloatEnv(process.env.GENAIPRO_SPEED);
+  const similarity = parseFloatEnv(process.env.GENAIPRO_SIMILARITY);
+  const stability = parseFloatEnv(process.env.GENAIPRO_STABILITY);
+  const useSpeakerBoost = parseBooleanEnv(process.env.GENAIPRO_USE_SPEAKER_BOOST);
 
   let audioBuffer: ArrayBuffer;
   try {
-    const response = await fetch(`${ELEVENLABS_API_BASE}/${effectiveVoiceId}`, {
+    const taskPayload: Record<string, unknown> = {
+      input: story.story_text,
+      voice_id: effectiveVoiceId,
+      model_id: modelId,
+    };
+
+    if (style !== undefined) {
+      taskPayload.style = style;
+    }
+    if (speed !== undefined) {
+      taskPayload.speed = speed;
+    }
+    if (similarity !== undefined) {
+      taskPayload.similarity = similarity;
+    }
+    if (stability !== undefined) {
+      taskPayload.stability = stability;
+    }
+    if (useSpeakerBoost !== undefined) {
+      taskPayload.use_speaker_boost = useSpeakerBoost;
+    }
+
+    const createResponse = await fetch(`${GENAIPRO_API_BASE}/labs/task`, {
       method: 'POST',
       headers: {
-        'xi-api-key': elevenLabsApiKey,
-        Accept: 'audio/mpeg',
+        Authorization: `Bearer ${genaiproApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        text: story.story_text,
-        model_id: 'eleven_turbo_v2_5',
-      }),
+      body: JSON.stringify(taskPayload),
       signal: controller.signal,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error ElevenLabs:', response.status, errorText);
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error('Error GenAIPro (crear tarea):', createResponse.status, errorText);
       await updateAudioStatus('error');
-      const classified = classifyElevenLabsError(errorText);
+      const classified = classifyGenaiproError(errorText);
       return buildAudioErrorResponse(
         classified.message,
         502,
@@ -163,11 +228,73 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    audioBuffer = await response.arrayBuffer();
+    const createData = await createResponse.json().catch(() => null);
+    const taskId = createData?.task_id as string | undefined;
+
+    if (!taskId) {
+      await updateAudioStatus('error');
+      return buildAudioErrorResponse('GenAIPro no devolviÃ³ task_id', 502, 'provider_bad_response');
+    }
+
+    const deadline = Date.now() + timeoutMs;
+    let resultUrl: string | null = null;
+
+    while (Date.now() < deadline) {
+      const statusResponse = await fetch(`${GENAIPRO_API_BASE}/labs/task/${taskId}`, {
+        headers: {
+          Authorization: `Bearer ${genaiproApiKey}`,
+        },
+      });
+
+      if (!statusResponse.ok) {
+        const errorText = await statusResponse.text();
+        console.error('Error GenAIPro (estado tarea):', statusResponse.status, errorText);
+        await updateAudioStatus('error');
+        const classified = classifyGenaiproError(errorText);
+        return buildAudioErrorResponse(
+          classified.message,
+          502,
+          classified.code,
+          errorText.slice(0, 500)
+        );
+      }
+
+      const statusData = await statusResponse.json().catch(() => null);
+      const status = statusData?.status as string | undefined;
+
+      if (status === 'completed') {
+        resultUrl = (statusData?.result as string | undefined) ?? null;
+        break;
+      }
+
+      if (status === 'error') {
+        const errorDetail =
+          typeof statusData?.error === 'string' ? statusData.error : 'Error en la tarea de GenAIPro';
+        await updateAudioStatus('error');
+        return buildAudioErrorResponse(errorDetail, 502, 'provider_task_error');
+      }
+
+      await sleep(pollIntervalMs);
+    }
+
+    if (!resultUrl) {
+      await updateAudioStatus('error');
+      return buildAudioErrorResponse('Tiempo de espera agotado en GenAIPro', 504, 'provider_timeout');
+    }
+
+    const audioResponse = await fetch(resultUrl);
+    if (!audioResponse.ok) {
+      const errorText = await audioResponse.text();
+      console.error('Error GenAIPro (descarga audio):', audioResponse.status, errorText);
+      await updateAudioStatus('error');
+      return buildAudioErrorResponse('No se pudo descargar el audio', 502, 'provider_audio_download', errorText.slice(0, 500));
+    }
+
+    audioBuffer = await audioResponse.arrayBuffer();
   } catch (error) {
-    console.error('Error al llamar a ElevenLabs:', error);
+    console.error('Error al llamar a GenAIPro:', error);
     await updateAudioStatus('error');
-    return buildAudioErrorResponse('Error al llamar a ElevenLabs', 502, 'elevenlabs_unreachable');
+    return buildAudioErrorResponse('Error al llamar a GenAIPro', 502, 'genaipro_unreachable');
   } finally {
     clearTimeout(timeoutId);
   }
@@ -177,7 +304,10 @@ export async function POST(request: NextRequest) {
     return buildAudioErrorResponse('Audio vacio', 502);
   }
 
-  const audioBucket = process.env.ELEVENLABS_AUDIO_BUCKET || DEFAULT_AUDIO_BUCKET;
+  const audioBucket =
+    process.env.GENAIPRO_AUDIO_BUCKET ||
+    process.env.ELEVENLABS_AUDIO_BUCKET ||
+    DEFAULT_AUDIO_BUCKET;
   const storagePath = `stories/${storyId}/${pendingAudio.id}.mp3`;
 
   const { error: uploadError } = await supabase.storage
