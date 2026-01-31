@@ -208,43 +208,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const raw = storyText.trim();
+    const rawLines = storyText.split('\n');
     let extractedTitle = '';
-    let extractedStory = '';
+    const storyLines: string[] = [];
+    let hasTitle = false;
 
-    const parseJsonPayload = (value: string) => {
-      const firstBrace = value.indexOf('{');
-      const lastBrace = value.lastIndexOf('}');
-      if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
-        return null;
+    for (const line of rawLines) {
+      if (!hasTitle && line.trim() !== '') {
+        extractedTitle = line.trim();
+        hasTitle = true;
+        continue;
       }
-      const candidate = value.slice(firstBrace, lastBrace + 1);
-      try {
-        return JSON.parse(candidate) as { title?: string; story?: string };
-      } catch {
-        return null;
+      if (hasTitle) {
+        if (storyLines.length === 0 && line.trim() === '') {
+          continue;
+        }
+        storyLines.push(line);
       }
-    };
+    }
 
-    const parsed = parseJsonPayload(raw);
-    if (!parsed || typeof parsed.title !== 'string' || typeof parsed.story !== 'string') {
+    storyText = storyLines.join('\n').trim();
+
+    if (!extractedTitle || !storyText) {
       return NextResponse.json(
-        { error: 'El assistant no devolvió un JSON válido con title y story' },
+        { error: 'El assistant no devolvió título y cuento en el formato esperado' },
         { status: 500 }
       );
     }
-
-    extractedTitle = parsed.title.trim();
-    extractedStory = parsed.story.trim();
-
-    if (!extractedTitle || !extractedStory) {
-      return NextResponse.json(
-        { error: 'El JSON del assistant llegó sin title o story' },
-        { status: 500 }
-      );
-    }
-
-    storyText = extractedStory;
 
     // 6. Guardar el cuento en Supabase
     const supabase = createSupabaseAdminClient();
