@@ -24,6 +24,31 @@ interface StoryRecord {
 }
 
 export default function Home() {
+  const buildAudioFilename = (title?: string | null) => {
+    const raw = (title || 'cuento').trim() || 'cuento';
+    const safe = raw.replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
+    return `${safe || 'cuento'}.mp3`;
+  };
+
+  const downloadAudio = async (url: string, title?: string | null) => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('download_failed');
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = buildAudioFilename(title);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      window.open(url, '_blank');
+    }
+  };
   const [storyState, setStoryState] = useState<StoryState>({});
   const [activeField, setActiveField] = useState<StoryField | null>(null);
   const [generationState, setGenerationState] = useState<
@@ -426,11 +451,18 @@ export default function Home() {
                   const storyDate = formatStoryDate(story.created_at);
                   const isDeleting = Boolean(deletingStories[story.id]);
                   return (
-                    <button
+                    <div
                       key={story.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setActiveStory(story)}
-                      className="text-left bg-white rounded-2xl border border-pink-100 p-5 shadow-sm hover:shadow-md transition-shadow"
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setActiveStory(story);
+                        }
+                      }}
+                      className="text-left bg-white rounded-2xl border border-pink-100 p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div>
@@ -458,7 +490,7 @@ export default function Home() {
                       <div className="mt-3 text-pink-600 text-sm font-semibold">
                         Leer cuento
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -533,15 +565,20 @@ export default function Home() {
                                   className="w-full"
                                 />
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <a
-                                    href={story.audio.audio_url}
-                                    download
-                                    target="_blank"
-                                    rel="noreferrer"
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (story.audio?.audio_url) {
+                                        void downloadAudio(
+                                          story.audio.audio_url,
+                                          story.title
+                                        );
+                                      }
+                                    }}
                                     className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-pink-500 text-white text-sm font-semibold shadow-sm hover:bg-pink-600 transition-colors"
                                   >
                                     Descargar audio
-                                  </a>
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={async () => {
@@ -645,15 +682,20 @@ export default function Home() {
                           className="w-full"
                         />
                         <div className="flex flex-wrap items-center gap-2">
-                          <a
-                            href={activeStory.audio.audio_url || undefined}
-                            download
-                            target="_blank"
-                            rel="noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (activeStory.audio?.audio_url) {
+                                void downloadAudio(
+                                  activeStory.audio.audio_url,
+                                  activeStory.title
+                                );
+                              }
+                            }}
                             className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-pink-500 text-white text-sm font-semibold shadow-sm hover:bg-pink-600 transition-colors"
                           >
                             Descargar audio
-                          </a>
+                          </button>
                           <button
                             type="button"
                             onClick={async () => {
