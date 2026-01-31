@@ -4,9 +4,9 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 const ELEVENLABS_API_BASE = 'https://api.elevenlabs.io/v1/text-to-speech';
 const GENAIPRO_API_BASE = 'https://genaipro.vn/api/v1';
 const DEFAULT_AUDIO_BUCKET = 'audios';
-const DEFAULT_MAX_CHARS = 4000;
-const DEFAULT_TIMEOUT_MS = 60000;
-const DEFAULT_POLL_INTERVAL_MS = 1500;
+const DEFAULT_MAX_CHARS = 10000;
+const DEFAULT_TIMEOUT_MS = 900000;
+const DEFAULT_POLL_INTERVAL_MS = 2000;
 
 type AudioStatus = 'pending' | 'ready' | 'error';
 
@@ -82,6 +82,15 @@ const classifyGenaiproError = (errorText: string) => {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
+  const logTiming = (label: string, extra?: Record<string, unknown>) => {
+    const ms = Date.now() - startedAt;
+    if (extra) {
+      console.log(`[audio] ${label}`, { ms, ...extra });
+    } else {
+      console.log(`[audio] ${label} (${ms}ms)`);
+    }
+  };
   const supabase = createSupabaseAdminClient();
 
   let payload: { story_id?: string; voice_id?: string };
@@ -169,6 +178,8 @@ export async function POST(request: NextRequest) {
     return buildAudioErrorResponse('GENAIPRO_API_KEY no configurado', 500, 'config_missing');
   }
 
+  logTiming('Inicio generacion', { storyId, textLength: story.story_text.length });
+
   const controller = new AbortController();
   const timeoutMs = parseNumberEnv(process.env.GENAIPRO_TIMEOUT_MS, DEFAULT_TIMEOUT_MS);
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -215,6 +226,8 @@ export async function POST(request: NextRequest) {
       signal: controller.signal,
     });
 
+    logTiming('GenAIPro tarea creada', { ok: createResponse.ok, status: createResponse.status });
+
     if (!createResponse.ok) {
       const errorText = await createResponse.text();
       console.error('Error GenAIPro (crear tarea):', createResponse.status, errorText);
@@ -238,6 +251,8 @@ export async function POST(request: NextRequest) {
 
     const deadline = Date.now() + timeoutMs;
     let resultUrl: string | null = null;
+    let pollCount = 0;
+    let lastStatus: string | undefined;
 
     while (Date.now() < deadline) {
       const statusResponse = await fetch(`${GENAIPRO_API_BASE}/labs/task/${taskId}`, {
@@ -262,6 +277,14 @@ export async function POST(request: NextRequest) {
       const statusData = await statusResponse.json().catch(() => null);
       const status = statusData?.status as string | undefined;
 
+      pollCount += 1;
+      if (status && status !== lastStatus) {
+        lastStatus = status;
+        logTiming('Estado GenAIPro', { status, pollCount });
+      } else if (pollCount % 10 === 0) {
+        logTiming('Polling GenAIPro', { status: status ?? 'unknown', pollCount });
+      }
+
       if (status === 'completed') {
         resultUrl = (statusData?.result as string | undefined) ?? null;
         break;
@@ -282,6 +305,7 @@ export async function POST(request: NextRequest) {
       return buildAudioErrorResponse('Tiempo de espera agotado en GenAIPro', 504, 'provider_timeout');
     }
 
+    logTiming('Descargando audio', { pollCount });
     const audioResponse = await fetch(resultUrl);
     if (!audioResponse.ok) {
       const errorText = await audioResponse.text();
@@ -291,6 +315,7 @@ export async function POST(request: NextRequest) {
     }
 
     audioBuffer = await audioResponse.arrayBuffer();
+    logTiming('Audio descargado', { bytes: audioBuffer.byteLength });
   } catch (error) {
     console.error('Error al llamar a GenAIPro:', error);
     await updateAudioStatus('error');
@@ -310,6 +335,7 @@ export async function POST(request: NextRequest) {
     DEFAULT_AUDIO_BUCKET;
   const storagePath = `stories/${storyId}/${pendingAudio.id}.mp3`;
 
+  logTiming('Subiendo audio a Supabase', { bucket: audioBucket });
   const { error: uploadError } = await supabase.storage
     .from(audioBucket)
     .upload(storagePath, Buffer.from(audioBuffer), {
@@ -347,6 +373,7 @@ export async function POST(request: NextRequest) {
   }
 
   await updateAudioStatus('ready', storagePath, audioUrl);
+  logTiming('Audio listo', { storagePath });
 
   return NextResponse.json({
     success: true,
