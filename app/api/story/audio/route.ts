@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
 
   const { data: story, error: storyError } = await supabase
     .from('stories')
-    .select('id, story_text')
+    .select('id, title, story_text')
     .eq('id', storyId)
     .single();
 
@@ -161,14 +161,17 @@ export async function POST(request: NextRequest) {
     return buildAudioErrorResponse('GENAIPRO_VOICE_ID no configurado', 500, 'config_missing');
   }
 
+  const titleLine = story.title ? `Titulo: ${story.title}\n\n` : '';
+  const audioText = `${titleLine}${story.story_text}`;
+
   const maxChars = parseNumberEnv(process.env.GENAIPRO_MAX_CHARS, DEFAULT_MAX_CHARS);
-  if (story.story_text.length > maxChars) {
+  if (audioText.length > maxChars) {
     await updateAudioStatus('error');
     return buildAudioErrorResponse(
       'El cuento supera el límite de caracteres para audio',
       400,
       'max_chars',
-      `Longitud: ${story.story_text.length}. Máximo: ${maxChars}.`
+      `Longitud: ${audioText.length}. Máximo: ${maxChars}.`
     );
   }
 
@@ -178,7 +181,7 @@ export async function POST(request: NextRequest) {
     return buildAudioErrorResponse('GENAIPRO_API_KEY no configurado', 500, 'config_missing');
   }
 
-  logTiming('Inicio generacion', { storyId, textLength: story.story_text.length });
+  logTiming('Inicio generacion', { storyId, textLength: audioText.length });
 
   const controller = new AbortController();
   const timeoutMs = parseNumberEnv(process.env.GENAIPRO_TIMEOUT_MS, DEFAULT_TIMEOUT_MS);
@@ -195,7 +198,7 @@ export async function POST(request: NextRequest) {
   let audioBuffer: ArrayBuffer;
   try {
     const taskPayload: Record<string, unknown> = {
-      input: story.story_text,
+      input: audioText,
       voice_id: effectiveVoiceId,
       model_id: modelId,
     };
@@ -387,3 +390,5 @@ export async function POST(request: NextRequest) {
     },
   });
 }
+
+
