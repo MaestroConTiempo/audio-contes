@@ -189,52 +189,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // El contenido puede ser un array, extraer el texto
-    const content = assistantMessage.content[0];
-    if (!content) {
+    // El contenido puede ser un array: concatenar todos los textos en orden
+    const textChunks = assistantMessage.content
+      .filter((item) => item.type === 'text')
+      .map((item) => item.text.value)
+      .filter((value) => value && value.trim() !== '');
+
+    if (textChunks.length === 0) {
       return NextResponse.json(
         { error: 'El mensaje del asistente llegó vacío' },
         { status: 500 }
       );
     }
-    let storyText = '';
-    
-    if (content.type === 'text') {
-      storyText = content.text.value;
-    } else {
-      return NextResponse.json(
-        { error: 'El contenido del mensaje no es texto' },
-        { status: 500 }
-      );
-    }
 
-    const rawLines = storyText.split('\n');
-    let extractedTitle = '';
-    const storyLines: string[] = [];
-    let hasTitle = false;
+    let storyText = textChunks.join('\n');
 
-    for (const line of rawLines) {
-      if (!hasTitle && line.trim() !== '') {
-        extractedTitle = line.trim();
-        hasTitle = true;
-        continue;
-      }
-      if (hasTitle) {
-        if (storyLines.length === 0 && line.trim() === '') {
-          continue;
-        }
-        storyLines.push(line);
-      }
-    }
+    const normalized = storyText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const withoutLeadingBlankLines = normalized.replace(/^\s*\n+/, '');
+    const lines = withoutLeadingBlankLines.split('\n');
+    const titleLine = (lines[0] ?? '').trim();
+    let rest = lines.slice(1).join('\n');
 
-    storyText = storyLines.join('\n').trim();
+    // Quitar una línea en blanco inicial (la línea 2 del formato)
+    rest = rest.replace(/^\s*\n/, '');
+    rest = rest.trim();
 
-    if (!extractedTitle || !storyText) {
+    if (!titleLine || !rest) {
       return NextResponse.json(
         { error: 'El assistant no devolvió título y cuento en el formato esperado' },
         { status: 500 }
       );
     }
+
+    const titleTooLong =
+      titleLine.length > 120 || titleLine.split(/\s+/).length > 12;
+
+    let extractedTitle = titleLine;
+    if (titleTooLong) {
+      // Si el "título" parece un párrafo, usar un fallback y devolver el texto completo
+      extractedTitle = getStoryTitle(storyState);
+      rest = `${titleLine}\n${rest}`.trim();
+    }
+
+    storyText = rest;
 
     // 6. Guardar el cuento en Supabase
     const supabase = createSupabaseAdminClient();
