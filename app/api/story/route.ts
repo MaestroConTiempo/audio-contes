@@ -43,6 +43,7 @@ function formatStoryStateToMessage(storyState: StoryState): string {
   const selectedLanguage = storyState.language?.optionName;
   if (selectedLanguage) {
     parts.push(`Redacta el cuento en ${selectedLanguage}.`);
+    parts.push('No uses ningun otro idioma distinto al indicado.');
   }
   
   return parts.join('\n');
@@ -108,6 +109,7 @@ export async function POST(request: NextRequest) {
 
     // Formatear mensaje para el assistant
     const userMessage = formatStoryStateToMessage(storyState);
+    console.log('OpenAI userMessage:', userMessage);
 
     // 1. Crear un thread nuevo
     const thread = await openai.beta.threads.create();

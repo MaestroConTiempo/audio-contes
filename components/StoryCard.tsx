@@ -27,12 +27,12 @@ export default function StoryCard({
       <div className="p-3 sm:p-6 flex flex-col items-center justify-center min-h-[96px] sm:min-h-[160px]">
         {hasSelection ? (
           <>
-            <div className="w-10 h-10 sm:w-16 sm:h-16 bg-gradient-to-br from-pink-200/90 to-purple-200/90 rounded-full flex items-center justify-center text-xl sm:text-3xl mb-2 sm:mb-3 overflow-hidden shadow-sm">
+            <div className="w-12 h-12 sm:w-20 sm:h-20 bg-gradient-to-br from-pink-200/90 to-purple-200/90 rounded-full flex items-center justify-center text-2xl sm:text-4xl mb-2 sm:mb-3 overflow-hidden shadow-sm">
               {selection.image ? (
                 <img
                   src={selection.image}
                   alt={selection.optionName || 'Selección'}
-                  className="w-7 h-7 sm:w-10 sm:h-10"
+                  className="w-8 h-8 sm:w-12 sm:h-12"
                 />
               ) : (
                 <span>{selection.icon || (selection.freeText ? '✍️' : '✨')}</span>
@@ -49,7 +49,7 @@ export default function StoryCard({
           </>
         ) : (
           <>
-            <div className="w-10 h-10 sm:w-16 sm:h-16 bg-white/80 rounded-full flex items-center justify-center text-xl sm:text-3xl mb-2 sm:mb-3 shadow-sm">
+            <div className="w-12 h-12 sm:w-20 sm:h-20 bg-white/80 rounded-full flex items-center justify-center text-2xl sm:text-4xl mb-2 sm:mb-3 shadow-sm">
               <span>{cardIcon || '❔'}</span>
             </div>
             <p className="text-slate-400 text-center text-[11px] sm:text-sm">Elije una opción...</p>
