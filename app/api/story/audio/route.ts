@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 const ELEVENLABS_API_BASE = 'https://api.elevenlabs.io/v1/text-to-speech';
 const GENAIPRO_API_BASE = 'https://genaipro.vn/api/v1';
@@ -91,7 +91,16 @@ export async function POST(request: NextRequest) {
       console.log(`[audio] ${label} (${ms}ms)`);
     }
   };
-  const supabase = createSupabaseAdminClient();
+  const authHeader =
+    request.headers.get('authorization') || request.headers.get('Authorization');
+  const accessToken = authHeader?.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : null;
+  const supabase = createSupabaseServerClient(accessToken ?? undefined);
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) {
+    return buildAudioErrorResponse('No autorizado', 401, 'unauthorized');
+  }
 
   let payload: { story_id?: string; voice_id?: string };
   try {
@@ -109,8 +118,9 @@ export async function POST(request: NextRequest) {
 
   const { data: story, error: storyError } = await supabase
     .from('stories')
-    .select('id, title, story_text')
+    .select('id, title, story_text, user_id')
     .eq('id', storyId)
+    .eq('user_id', userData.user.id)
     .single();
 
   if (storyError || !story?.story_text) {
@@ -129,7 +139,7 @@ export async function POST(request: NextRequest) {
       status: 'pending' as AudioStatus,
       storage_path: null,
       audio_url: null,
-      user_id: null,
+      user_id: userData.user.id,
     })
     .select()
     .single();
@@ -336,7 +346,7 @@ export async function POST(request: NextRequest) {
     process.env.GENAIPRO_AUDIO_BUCKET ||
     process.env.ELEVENLABS_AUDIO_BUCKET ||
     DEFAULT_AUDIO_BUCKET;
-  const storagePath = `stories/${storyId}/${pendingAudio.id}.mp3`;
+  const storagePath = `users/${userData.user.id}/stories/${storyId}/${pendingAudio.id}.mp3`;
 
   logTiming('Subiendo audio a Supabase', { bucket: audioBucket });
   const { error: uploadError } = await supabase.storage

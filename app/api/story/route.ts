@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { StoryState } from '@/lib/storyData';
 
 /**
@@ -93,13 +93,24 @@ export async function POST(request: NextRequest) {
     // Obtener storyState del body
     const body = await request.json();
     const storyState: StoryState = body.storyState;
-    const userId: string | null = body.userId ?? null;
 
     if (!storyState) {
       return NextResponse.json(
         { error: 'storyState es requerido' },
         { status: 400 }
       );
+    }
+
+    const authHeader =
+      request.headers.get('authorization') || request.headers.get('Authorization');
+    const accessToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice(7).trim()
+      : null;
+    const supabase = createSupabaseServerClient(accessToken ?? undefined);
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !userData?.user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
     // Inicializar cliente de OpenAI
@@ -236,23 +247,19 @@ export async function POST(request: NextRequest) {
     storyText = rest;
 
     // 6. Guardar el cuento en Supabase
-    const supabase = createSupabaseAdminClient();
     const insertPayload: {
-      user_id?: string;
+      user_id: string;
       title: string;
       inputs: StoryState;
       story_text: string;
       status: string;
     } = {
+      user_id: userData.user.id,
       title: extractedTitle,
       inputs: storyState,
       story_text: storyText,
       status: 'generated',
     };
-
-    if (userId) {
-      insertPayload.user_id = userId;
-    }
 
     const { data: insertedStory, error: supabaseError } = await supabase
       .from('stories')

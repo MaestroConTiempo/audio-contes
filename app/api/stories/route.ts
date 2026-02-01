@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { NextRequest, NextResponse } from 'next/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 type AudioRecord = {
   story_id: string;
@@ -9,12 +9,33 @@ type AudioRecord = {
   created_at?: string | null;
 };
 
-export async function GET() {
+const getAccessToken = (request: NextRequest) => {
+  const authHeader =
+    request.headers.get('authorization') || request.headers.get('Authorization');
+  if (!authHeader) {
+    return null;
+  }
+  const [scheme, token] = authHeader.split(' ');
+  if (!scheme || scheme.toLowerCase() !== 'bearer' || !token) {
+    return null;
+  }
+  return token.trim();
+};
+
+export async function GET(request: NextRequest) {
   try {
-    const supabase = createSupabaseAdminClient();
+    const accessToken = getAccessToken(request);
+    const supabase = createSupabaseServerClient(accessToken ?? undefined);
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !userData?.user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
     const { data, error } = await supabase
       .from('stories')
       .select('id,title,story_text,created_at,status,inputs')
+      .eq('user_id', userData.user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -36,6 +57,7 @@ export async function GET() {
       .from('audios')
       .select('story_id,voice_id,status,audio_url,created_at')
       .in('story_id', storyIds)
+      .eq('user_id', userData.user.id)
       .order('created_at', { ascending: false });
 
     if (audioError) {

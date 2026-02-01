@@ -6,6 +6,7 @@ import SelectorModal from '@/components/SelectorModal';
 import BottomNav from '@/components/BottomNav';
 import GenerationLoader from '@/components/GenerationLoader';
 import { storyFields, StoryState, StoryField } from '@/lib/storyData';
+import { useAuth } from '@/components/AuthProvider';
 
 type NavView = 'home' | 'stories' | 'audio';
 
@@ -24,6 +25,7 @@ interface StoryRecord {
 }
 
 export default function Home() {
+  const { user, session, isLoading: isAuthLoading, signUp, signInWithPassword, signOut } = useAuth();
   const buildAudioFilename = (title?: string | null) => {
     const raw = (title || 'cuento').trim() || 'cuento';
     const safe = raw.replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
@@ -63,6 +65,12 @@ export default function Home() {
   const isFetchingStoriesRef = useRef(false);
   const [deletingStories, setDeletingStories] = useState<Record<string, boolean>>({});
   const [deletingAudios, setDeletingAudios] = useState<Record<string, boolean>>({});
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [authPending, setAuthPending] = useState(false);
 
   const handleCardClick = (fieldId: string) => {
     if (generationState === 'generating_story' || generationState === 'generating_audio') {
@@ -97,6 +105,12 @@ export default function Home() {
       return;
     }
 
+    if (!session) {
+      setError('Debes iniciar sesiÃ³n para crear cuentos.');
+      setGenerationState('error');
+      return;
+    }
+
     setGenerationState('generating_story');
     setError(null);
     setActiveStory(null);
@@ -106,6 +120,7 @@ export default function Home() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ storyState }),
       });
@@ -164,6 +179,9 @@ export default function Home() {
   };
 
   const triggerAudioGeneration = async (storyId: string) => {
+    if (!session) {
+      return { ok: false, errorMessage: 'Debes iniciar sesiÃ³n para generar audio.' } as const;
+    }
     const trimmedVoiceId = storyState.narrator?.optionId?.trim() || '';
     applyAudioUpdate(storyId, {
       audio_url: null,
@@ -181,6 +199,7 @@ export default function Home() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -226,12 +245,20 @@ export default function Home() {
       return;
     }
 
+    if (!session) {
+      setStoriesError('Debes iniciar sesión para eliminar cuentos.');
+      return;
+    }
+
     setDeletingStories((prev) => ({ ...prev, [storyId]: true }));
     setStoriesError(null);
 
     try {
       const response = await fetch(`/api/stories/${storyId}`, {
         method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
       const data = await response.json();
 
@@ -256,12 +283,20 @@ export default function Home() {
       return;
     }
 
+    if (!session) {
+      setStoriesError('Debes iniciar sesión para eliminar audios.');
+      return;
+    }
+
     setDeletingAudios((prev) => ({ ...prev, [storyId]: true }));
     setStoriesError(null);
 
     try {
       const response = await fetch(`/api/story/audio/${storyId}`, {
         method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
       const data = await response.json();
 
@@ -287,7 +322,18 @@ export default function Home() {
     setStoriesError(null);
 
     try {
-      const response = await fetch('/api/stories', { cache: 'no-store' });
+      if (!session) {
+        setStories([]);
+        setStoriesError('Inicia sesión para ver tus cuentos.');
+        return;
+      }
+
+      const response = await fetch('/api/stories', {
+        cache: 'no-store',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
       const data = await response.json();
 
       if (!response.ok) {
@@ -305,10 +351,58 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (activeView === 'stories' || activeView === 'audio') {
+    if (!isAuthLoading && (activeView === 'stories' || activeView === 'audio')) {
       loadStories();
     }
-  }, [activeView]);
+  }, [activeView, session?.access_token, isAuthLoading]);
+
+  useEffect(() => {
+    if (!session) {
+      setStories([]);
+      setActiveStory(null);
+      setGenerationState('idle');
+    }
+  }, [session]);
+
+  const handleAuthSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAuthError(null);
+    setAuthMessage(null);
+
+    const email = authEmail.trim();
+    const password = authPassword;
+
+    if (!email || !password) {
+      setAuthError('Completa email y contraseña.');
+      return;
+    }
+
+    setAuthPending(true);
+    const response =
+      authMode === 'signup'
+        ? await signUp({ email, password })
+        : await signInWithPassword({ email, password });
+
+    if (response.error) {
+      setAuthError(response.error.message);
+    } else if (authMode === 'signup' && !response.data.session) {
+      setAuthMessage('Registro exitoso. Revisa tu correo para confirmar tu cuenta.');
+    } else {
+      setAuthMessage('Sesión iniciada.');
+    }
+    setAuthPending(false);
+  };
+
+  const handleSignOut = async () => {
+    setAuthError(null);
+    setAuthMessage(null);
+    await signOut();
+    setStories([]);
+    setActiveStory(null);
+    setStoryState({});
+    setGenerationState('idle');
+    setActiveView('home');
+  };
 
   const formatStoryDate = (value?: string | null) => {
     if (!value) {
@@ -412,7 +506,122 @@ export default function Home() {
       </header>
 
       <main className="max-w-screen-xl mx-auto px-4 py-6 pb-40">
-        {activeView === 'home' ? (
+        {isAuthLoading ? (
+          <div className="min-h-[70vh] flex items-center justify-center">
+            <div className="rounded-3xl bg-white/70 backdrop-blur-md border border-white/70 shadow-sm px-6 py-4 text-slate-500">
+              Cargando sesión...
+            </div>
+          </div>
+        ) : !user ? (
+          <div className="min-h-[70vh] flex items-center justify-center">
+            <div className="w-full max-w-xl rounded-3xl bg-white/70 backdrop-blur-md border border-white/70 shadow-xl p-6 md:p-8">
+              <div className="mb-6 text-center">
+                <h2 className="text-2xl md:text-3xl font-bold text-pink-600 handwriting">
+                  Bienvenido a tu fábrica de cuentos
+                </h2>
+                <p className="text-slate-600 mt-2">
+                  Inicia sesión o crea una cuenta para comenzar.
+                </p>
+              </div>
+              <form className="space-y-4" onSubmit={handleAuthSubmit}>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('login')}
+                    className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+                      authMode === 'login'
+                        ? 'bg-pink-500 text-white shadow-sm'
+                        : 'bg-white/80 text-pink-600 border border-pink-200'
+                    }`}
+                  >
+                    Iniciar sesión
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('signup')}
+                    className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+                      authMode === 'signup'
+                        ? 'bg-pink-500 text-white shadow-sm'
+                        : 'bg-white/80 text-pink-600 border border-pink-200'
+                    }`}
+                  >
+                    Registrarme
+                  </button>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="text-sm text-slate-600">
+                    Email
+                    <input
+                      type="email"
+                      value={authEmail}
+                      onChange={(event) => setAuthEmail(event.target.value)}
+                      placeholder="tu@email.com"
+                      className="mt-1 w-full rounded-xl border border-pink-100 bg-white/90 px-3 py-2 text-slate-800 shadow-sm focus:border-pink-300 focus:outline-none"
+                      autoComplete="email"
+                      required
+                    />
+                  </label>
+                  <label className="text-sm text-slate-600">
+                    Contraseña
+                    <input
+                      type="password"
+                      value={authPassword}
+                      onChange={(event) => setAuthPassword(event.target.value)}
+                      placeholder="********"
+                      className="mt-1 w-full rounded-xl border border-pink-100 bg-white/90 px-3 py-2 text-slate-800 shadow-sm focus:border-pink-300 focus:outline-none"
+                      autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
+                      required
+                    />
+                  </label>
+                </div>
+
+                {authError && (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
+                    {authError}
+                  </div>
+                )}
+                {authMessage && (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
+                    {authMessage}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={authPending}
+                  className="w-full inline-flex items-center justify-center px-4 py-3 rounded-full bg-pink-500 text-white text-sm font-semibold shadow-sm hover:bg-pink-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {authPending
+                    ? authMode === 'signup'
+                      ? 'Registrando...'
+                      : 'Entrando...'
+                    : authMode === 'signup'
+                      ? 'Crear cuenta'
+                      : 'Entrar'}
+                </button>
+              </form>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="mb-6 rounded-3xl bg-white/60 backdrop-blur-md border border-white/70 shadow-sm p-5">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-slate-500">Sesión activa</p>
+                  <p className="text-base font-semibold text-slate-800">{user.email}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-white/90 text-pink-600 text-sm font-semibold border border-pink-200 shadow-sm hover:bg-white transition-colors"
+                >
+                  Cerrar sesión
+                </button>
+              </div>
+            </div>
+
+            {activeView === 'home' ? (
           <div className="space-y-6">
             <div className="rounded-3xl bg-white/40 backdrop-blur-md p-6 md:p-8 shadow-inner border border-white/70">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -431,7 +640,7 @@ export default function Home() {
               </div>
             </div>
           </div>
-        ) : activeView === 'stories' ? (
+            ) : activeView === 'stories' ? (
           <div className="space-y-4">
             {storiesError && (
               <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4">
@@ -496,7 +705,7 @@ export default function Home() {
               </div>
             )}
           </div>
-        ) : (
+            ) : (
           <div className="space-y-4">
             {storiesError && (
               <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4">
@@ -618,15 +827,19 @@ export default function Home() {
               })()
             )}
           </div>
+            )}
+          </>
         )}
       </main>
 
-      <BottomNav
-        active={activeView}
-        onNavigate={setActiveView}
-        onCreate={handleConfirm}
-        createDisabled={!isFormComplete() || isBlocking}
-      />
+      {user && (
+        <BottomNav
+          active={activeView}
+          onNavigate={setActiveView}
+          onCreate={handleConfirm}
+          createDisabled={!isFormComplete() || isBlocking || !session}
+        />
+      )}
 
       {activeField && (
         <SelectorModal
