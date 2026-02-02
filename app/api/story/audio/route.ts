@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   const pollIntervalMs = parseNumberEnv(process.env.GENAIPRO_POLL_INTERVAL_MS, DEFAULT_POLL_INTERVAL_MS);
 
-  const modelId = process.env.GENAIPRO_MODEL_ID?.trim() || 'eleven_multilingual_v2';
+  const modelId = 'eleven_turbo_v2_5';
   const style = parseFloatEnv(process.env.GENAIPRO_STYLE);
   const speed = parseFloatEnv(process.env.GENAIPRO_SPEED);
   const similarity = parseFloatEnv(process.env.GENAIPRO_SIMILARITY);
