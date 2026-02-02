@@ -14,13 +14,12 @@ function formatStoryStateToMessage(storyState: StoryState): string {
     place: 'Lugar',
     moral: '¿Qué pasará?',
     language: 'Idioma',
-    narrator: 'Narrador',
   };
 
   const parts: string[] = ['Genera un cuento infantil con estos elementos:'];
   
   // Orden de campos para el mensaje
-  const fieldOrder = ['hero', 'sidekick', 'object', 'place', 'moral', 'language', 'narrator'];
+  const fieldOrder = ['hero', 'sidekick', 'object', 'place', 'moral', 'language'];
   
   for (const fieldId of fieldOrder) {
     const selection = storyState[fieldId];

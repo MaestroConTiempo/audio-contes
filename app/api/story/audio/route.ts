@@ -128,8 +128,7 @@ export async function POST(request: NextRequest) {
     return buildAudioErrorResponse('No se encontro el cuento', 404);
   }
 
-  const effectiveVoiceId =
-    voiceIdInput || process.env.GENAIPRO_VOICE_ID?.trim();
+  const effectiveVoiceId = voiceIdInput;
 
   const { data: pendingAudio, error: pendingError } = await supabase
     .from('audios')
@@ -168,7 +167,7 @@ export async function POST(request: NextRequest) {
 
   if (!effectiveVoiceId) {
     await updateAudioStatus('error');
-    return buildAudioErrorResponse('GENAIPRO_VOICE_ID no configurado', 500, 'config_missing');
+    return buildAudioErrorResponse('voice_id es requerido', 400);
   }
 
   const titleLine = story.title ? `Titulo: ${story.title}\n\n` : '';

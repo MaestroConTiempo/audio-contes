@@ -502,9 +502,9 @@ export const storyFields: Record<string, StoryField> = {
     needsName: false,
     cardIcon: '🎙️',
     options: [
-      { id: 'OPFGXzbjTxC8s9nJbglQ', name: 'Rubén', icon: '🧔' },
       { id: 'tXgbXPnsMpKXkuTgvE3h', name: 'Elena', icon: '👩' },
-      { id: '6Kc26SMEaG6swH53OgIE', name: 'Una ratita', icon: '🐭' },
+      { id: 'erKgR0s8Y67t4iiHuA9R', name: 'Martin', icon: '👨' },
+      { id: 'Ir1QNHvhaJXbAGhT50w3', name: 'Sara', icon: '👩' },
     ],
   },
 };
