@@ -13,9 +13,11 @@ type NavView = 'home' | 'stories' | 'audio';
 interface StoryRecord {
   id: string;
   title: string;
-  story_text: string;
+  story_text?: string | null;
   created_at?: string | null;
   status?: string | null;
+  generation_error?: string | null;
+  generated_at?: string | null;
   inputs?: StoryState;
   audio?: {
     audio_url?: string | null;
@@ -23,6 +25,8 @@ interface StoryRecord {
     voice_id?: string | null;
   } | null;
 }
+
+const PENDING_STORY_STATUSES = new Set(['pending', 'generating_story', 'generating_audio']);
 
 export default function Home() {
   const { user, session, isLoading: isAuthLoading, signUp, signInWithPassword, signOut } = useAuth();
@@ -116,7 +120,7 @@ export default function Home() {
     setActiveStory(null);
 
     try {
-      const response = await fetch('/api/story', {
+      const response = await fetch('/api/story/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -131,32 +135,25 @@ export default function Home() {
         throw new Error(data.error || 'Error al generar el cuento');
       }
 
-      if (data.success && data.story?.story_text) {
+      if (data.success && data.story_id) {
         const newStory: StoryRecord = {
-          id: data.story.id,
-          title: data.story.title ?? '',
-          story_text: data.story.story_text,
-          created_at: data.story.created_at ?? null,
-          status: data.story.status ?? null,
-          inputs: data.story.inputs,
+          id: data.story_id,
+          title: data.story?.title ?? '',
+          story_text: null,
+          created_at: data.story?.created_at ?? null,
+          status: data.status ?? data.story?.status ?? 'pending',
+          inputs: storyState,
+          audio: {
+            audio_url: null,
+            status: 'pending',
+            voice_id: storyState.narrator?.optionId?.trim() || null,
+          },
         };
-        const storyLength = newStory.story_text.length;
-        console.log(`Longitud del cuento: ${storyLength} caracteres`);
-        setActiveStory(newStory);
         setStories((prev) => [newStory, ...prev.filter((story) => story.id !== newStory.id)]);
-        setGenerationState('generating_audio');
-        const audioResult = await triggerAudioGeneration(newStory.id);
-        if (audioResult.ok) {
-          setGenerationState('done');
-        } else {
-          setGenerationState('error');
-          const lengthInfo = ` (Longitud: ${storyLength} caracteres)`;
-          setError(
-            `${audioResult.errorMessage || 'No se pudo generar el audio. Intentalo de nuevo.'}${lengthInfo}`
-          );
-        }
+        setGenerationState('idle');
+        setActiveView('stories');
       } else {
-        throw new Error('No se recibió el cuento generado');
+        throw new Error('No se pudo iniciar la generación');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
@@ -176,60 +173,6 @@ export default function Home() {
     setActiveStory((prev) =>
       prev?.id === storyId ? { ...prev, audio } : prev
     );
-  };
-
-  const triggerAudioGeneration = async (storyId: string) => {
-    if (!session) {
-      return { ok: false, errorMessage: 'Debes iniciar sesiÃ³n para generar audio.' } as const;
-    }
-    const trimmedVoiceId = storyState.narrator?.optionId?.trim() || '';
-    applyAudioUpdate(storyId, {
-      audio_url: null,
-      status: 'pending',
-      voice_id: trimmedVoiceId || null,
-    });
-
-    try {
-      const payload: { story_id: string; voice_id?: string } = { story_id: storyId };
-      if (trimmedVoiceId) {
-        payload.voice_id = trimmedVoiceId;
-      }
-
-      const response = await fetch('/api/story/audio', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        const detail = data?.detail ? ` (${data.detail})` : '';
-        const codeLabel = data?.code ? ` [${data.code}]` : '';
-        throw new Error(
-          `${data.error || 'Error al generar el audio'}${codeLabel}${detail}`
-        );
-      }
-
-      applyAudioUpdate(storyId, {
-        audio_url: data.audio?.audio_url ?? null,
-        status: data.audio?.status ?? null,
-        voice_id: data.audio?.voice_id ?? null,
-      });
-      return { ok: true } as const;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al generar el audio';
-      console.error('Error al generar audio:', err);
-      applyAudioUpdate(storyId, {
-        audio_url: null,
-        status: 'error',
-        voice_id: trimmedVoiceId || null,
-      });
-      return { ok: false, errorMessage } as const;
-    }
   };
 
   const handleCloseStory = () => {
@@ -350,11 +293,34 @@ export default function Home() {
     }
   };
 
+  const hasPendingStoryGeneration = stories.some((story) =>
+    PENDING_STORY_STATUSES.has((story.status || '').trim())
+  );
+  const hasPendingAudioGeneration = stories.some((story) => story.audio?.status === 'pending');
+
+  useEffect(() => {
+    if (!isAuthLoading) {
+      void loadStories();
+    }
+  }, [session?.access_token, isAuthLoading]);
+
   useEffect(() => {
     if (!isAuthLoading && (activeView === 'stories' || activeView === 'audio')) {
-      loadStories();
+      void loadStories();
     }
   }, [activeView, session?.access_token, isAuthLoading]);
+
+  useEffect(() => {
+    if (!session || (!hasPendingStoryGeneration && !hasPendingAudioGeneration)) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void loadStories();
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [session?.access_token, hasPendingStoryGeneration, hasPendingAudioGeneration]);
 
   useEffect(() => {
     if (!session) {
@@ -470,7 +436,10 @@ export default function Home() {
 
   const fieldOrder = ['hero', 'sidekick', 'object', 'place', 'moral', 'language', 'narrator'];
   const isBlocking =
-    generationState === 'generating_story' || generationState === 'generating_audio';
+    generationState === 'generating_story' ||
+    generationState === 'generating_audio' ||
+    hasPendingStoryGeneration ||
+    hasPendingAudioGeneration;
 
   return (
     <div className="min-h-screen bg-[url('/Interfaz.png')] bg-cover bg-center pb-32">
@@ -621,6 +590,14 @@ export default function Home() {
               </div>
             </div>
 
+            {(hasPendingStoryGeneration || hasPendingAudioGeneration) && (
+              <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                {hasPendingStoryGeneration
+                  ? 'Generando cuento... Puedes cerrar la app y volver luego.'
+                  : 'Generando audio... Puedes cerrar la app y volver luego.'}
+              </div>
+            )}
+
             {activeView === 'home' ? (
           <div className="space-y-6">
             <div className="rounded-3xl bg-white/40 backdrop-blur-md p-6 md:p-8 shadow-inner border border-white/70">
@@ -659,19 +636,34 @@ export default function Home() {
                 {stories.map((story) => {
                   const storyDate = formatStoryDate(story.created_at);
                   const isDeleting = Boolean(deletingStories[story.id]);
+                  const status = (story.status || '').trim();
+                  const isPendingStory = PENDING_STORY_STATUSES.has(status);
+                  const canOpenStory = Boolean(story.story_text) && !isPendingStory;
+                  const statusLabel =
+                    status === 'error'
+                      ? 'Error'
+                      : status === 'ready'
+                        ? 'Listo'
+                        : isPendingStory
+                          ? 'Generando'
+                          : status || 'Generado';
                   return (
                     <div
                       key={story.id}
                       role="button"
                       tabIndex={0}
-                      onClick={() => setActiveStory(story)}
+                      onClick={() => {
+                        if (canOpenStory) {
+                          setActiveStory(story);
+                        }
+                      }}
                       onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
+                        if ((event.key === 'Enter' || event.key === ' ') && canOpenStory) {
                           event.preventDefault();
                           setActiveStory(story);
                         }
                       }}
-                      className="text-left bg-white rounded-2xl border border-pink-100 p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300"
+                      className={`text-left bg-white rounded-2xl border border-pink-100 p-5 shadow-sm transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 ${canOpenStory ? 'hover:shadow-md cursor-pointer' : 'cursor-default'}`}
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div>
@@ -683,6 +675,7 @@ export default function Home() {
                           )}
                         </div>
                         <div className="flex items-center gap-3">
+                          <span className="text-xs text-slate-400 uppercase tracking-wide">{statusLabel}</span>
                           <button
                             type="button"
                             onClick={(event) => {
@@ -697,7 +690,11 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="mt-3 text-pink-600 text-sm font-semibold">
-                        Leer cuento
+                        {isPendingStory
+                          ? 'Generando cuento...'
+                          : status === 'error'
+                            ? 'Error al generar. Intentalo de nuevo.'
+                            : 'Leer cuento'}
                       </div>
                     </div>
                   );
@@ -728,7 +725,7 @@ export default function Home() {
                 if (audioStories.length === 0) {
                   return (
                     <div className="bg-white border border-pink-100 rounded-2xl p-6 text-slate-600">
-                      Todavia no hay audios creados. Genera un cuento y activa el audio.
+                      Todavia no hay audios creados. Los nuevos cuentos generan audio automaticamente.
                     </div>
                   );
                 }
@@ -852,15 +849,12 @@ export default function Home() {
 
       {isBlocking && (
         <GenerationLoader
-          phase={generationState === 'generating_story' ? 'story' : 'audio'}
+          phase={hasPendingStoryGeneration || generationState === 'generating_story' ? 'story' : 'audio'}
         />
       )}
 
       {/* Modal para mostrar el cuento generado */}
-      {(error ||
-        (activeStory &&
-          generationState !== 'generating_story' &&
-          generationState !== 'generating_audio')) && (
+      {(error || activeStory) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-pink-100 px-6 py-4 flex items-center justify-between">

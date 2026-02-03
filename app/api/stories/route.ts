@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('stories')
-      .select('id,title,story_text,created_at,status,inputs')
+      .select('id,title,story_text,created_at,status,inputs,generation_error,generated_at')
       .eq('user_id', userData.user.id)
       .order('created_at', { ascending: false });
 
