@@ -14,6 +14,12 @@ type AuthContextValue = {
   signInWithPassword: (params: { email: string; password: string }) => ReturnType<
     ReturnType<typeof createSupabaseBrowserClient>['auth']['signInWithPassword']
   >;
+  resetPasswordForEmail: (email: string, redirectTo?: string) => ReturnType<
+    ReturnType<typeof createSupabaseBrowserClient>['auth']['resetPasswordForEmail']
+  >;
+  updatePassword: (password: string) => ReturnType<
+    ReturnType<typeof createSupabaseBrowserClient>['auth']['updateUser']
+  >;
   signOut: () => ReturnType<ReturnType<typeof createSupabaseBrowserClient>['auth']['signOut']>;
 };
 
@@ -63,6 +69,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         supabase.auth.signUp(params),
       signInWithPassword: (params: { email: string; password: string }) =>
         supabase.auth.signInWithPassword(params),
+      resetPasswordForEmail: (email: string, redirectTo?: string) =>
+        supabase.auth.resetPasswordForEmail(
+          email,
+          redirectTo ? { redirectTo } : undefined
+        ),
+      updatePassword: (password: string) =>
+        supabase.auth.updateUser({ password }),
       signOut: () => supabase.auth.signOut(),
     }),
     [user, session, isLoading, supabase]

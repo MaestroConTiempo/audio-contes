@@ -7,6 +7,7 @@ import BottomNav from '@/components/BottomNav';
 import GenerationLoader from '@/components/GenerationLoader';
 import { storyFields, StoryState, StoryField } from '@/lib/storyData';
 import { useAuth } from '@/components/AuthProvider';
+import { translateSupabaseAuthError } from '@/lib/authErrorMessages';
 
 type NavView = 'home' | 'stories' | 'audio';
 
@@ -29,7 +30,15 @@ interface StoryRecord {
 const PENDING_STORY_STATUSES = new Set(['pending', 'generating_story', 'generating_audio']);
 
 export default function Home() {
-  const { user, session, isLoading: isAuthLoading, signUp, signInWithPassword, signOut } = useAuth();
+  const {
+    user,
+    session,
+    isLoading: isAuthLoading,
+    signUp,
+    signInWithPassword,
+    resetPasswordForEmail,
+    signOut,
+  } = useAuth();
   const buildAudioFilename = (title?: string | null) => {
     const raw = (title || 'cuento').trim() || 'cuento';
     const safe = raw.replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
@@ -75,6 +84,7 @@ export default function Home() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [authPending, setAuthPending] = useState(false);
+  const [authRecoveryPending, setAuthRecoveryPending] = useState(false);
 
   const handleCardClick = (fieldId: string) => {
     if (generationState === 'generating_story' || generationState === 'generating_audio') {
@@ -350,7 +360,7 @@ export default function Home() {
         : await signInWithPassword({ email, password });
 
     if (response.error) {
-      setAuthError(response.error.message);
+      setAuthError(translateSupabaseAuthError(response.error.message));
     } else if (authMode === 'signup' && !response.data.session) {
       setAuthMessage('Registro exitoso. Revisa tu correo para confirmar tu cuenta.');
     } else {
@@ -368,6 +378,29 @@ export default function Home() {
     setStoryState({});
     setGenerationState('idle');
     setActiveView('home');
+  };
+
+  const handleForgotPassword = async () => {
+    const email = authEmail.trim();
+    setAuthError(null);
+    setAuthMessage(null);
+
+    if (!email) {
+      setAuthError('Escribe tu email para recuperar la contrasena.');
+      return;
+    }
+
+    setAuthRecoveryPending(true);
+    const redirectTo =
+      typeof window !== 'undefined' ? `${window.location.origin}/reset-password` : undefined;
+    const response = await resetPasswordForEmail(email, redirectTo);
+
+    if (response.error) {
+      setAuthError(translateSupabaseAuthError(response.error.message));
+    } else {
+      setAuthMessage('Te enviamos un enlace para restablecer tu contrasena.');
+    }
+    setAuthRecoveryPending(false);
   };
 
   const formatStoryDate = (value?: string | null) => {
@@ -558,7 +591,7 @@ export default function Home() {
 
                 <button
                   type="submit"
-                  disabled={authPending}
+                  disabled={authPending || authRecoveryPending}
                   className="w-full inline-flex items-center justify-center px-4 py-3 rounded-full bg-pink-500 text-white text-sm font-semibold shadow-sm hover:bg-pink-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {authPending
@@ -569,6 +602,21 @@ export default function Home() {
                       ? 'Crear cuenta'
                       : 'Entrar'}
                 </button>
+
+                {authMode === 'login' && (
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      disabled={authPending || authRecoveryPending}
+                      className="text-sm font-medium text-pink-600 hover:text-pink-700 underline underline-offset-4 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {authRecoveryPending
+                        ? 'Enviando enlace...'
+                        : '¿Has olvidado la contraseña?'}
+                    </button>
+                  </div>
+                )}
               </form>
             </div>
           </div>
@@ -944,6 +992,8 @@ export default function Home() {
     </div>
   );
 }
+
+
 
 
 
