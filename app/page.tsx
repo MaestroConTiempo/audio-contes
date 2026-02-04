@@ -161,7 +161,7 @@ export default function Home() {
         };
         setStories((prev) => [newStory, ...prev.filter((story) => story.id !== newStory.id)]);
         setGenerationState('idle');
-        setActiveView('stories');
+        setActiveView('home');
       } else {
         throw new Error('No se pudo iniciar la generación');
       }
