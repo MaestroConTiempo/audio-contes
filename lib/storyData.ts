@@ -27,7 +27,7 @@ export const storyFields: Record<string, StoryField> = {
       {
         id: 'luna-inventora',
         name: 'Luna, inventora de chicles elásticos',
-        image: '/option-icons/heroes/luna-inventora.svg',
+        image: '/option-icons/heroes/Luna.png',
       },
       {
         id: 'bruno-domador',

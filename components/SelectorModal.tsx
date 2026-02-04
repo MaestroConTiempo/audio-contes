@@ -104,7 +104,7 @@ export default function SelectorModal({
                   <button
                     key={option.id}
                     onClick={() => setSelectedOption(option)}
-                    className={`p-4 rounded-2xl border-2 transition-all ${
+                    className={`p-3 rounded-2xl border-2 transition-all ${
                       selectedOption?.id === option.id
                         ? 'border-pink-400 bg-pink-50 shadow-md scale-105'
                         : 'border-slate-200 hover:border-pink-300 hover:bg-pink-50'
@@ -114,10 +114,10 @@ export default function SelectorModal({
                       <img
                         src={option.image}
                         alt={option.name}
-                        className="w-12 h-12 mx-auto mb-2"
+                        className="w-full h-32 md:h-40 mx-auto mb-2 object-cover rounded-xl"
                       />
                     ) : (
-                      <div className="text-4xl mb-2">{option.icon}</div>
+                      <div className="text-5xl mb-2">{option.icon}</div>
                     )}
                     <p className="text-sm font-medium text-slate-700 text-center">
                       {option.name}

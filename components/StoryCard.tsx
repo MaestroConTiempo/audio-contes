@@ -27,12 +27,12 @@ export default function StoryCard({
       <div className="p-3 sm:p-6 flex flex-col items-center justify-center min-h-[96px] sm:min-h-[160px]">
         {hasSelection ? (
           <>
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-pink-200/90 to-purple-200/90 rounded-full flex items-center justify-center text-3xl sm:text-4xl mb-2 sm:mb-3 overflow-hidden shadow-sm">
+            <div className="w-20 h-20 sm:w-28 sm:h-28 bg-gradient-to-br from-pink-200/90 to-purple-200/90 rounded-full flex items-center justify-center text-3xl sm:text-4xl mb-2 sm:mb-3 overflow-hidden shadow-sm">
               {selection.image ? (
                 <img
                   src={selection.image}
                   alt={selection.optionName || 'Selección'}
-                  className="w-10 h-10 sm:w-12 sm:h-12"
+                  className="w-full h-full object-cover"
                 />
               ) : (
                 <span>{selection.icon || (selection.freeText ? '✍️' : '✨')}</span>
