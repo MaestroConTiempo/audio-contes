@@ -470,9 +470,7 @@ export default function Home() {
   const fieldOrder = ['hero', 'sidekick', 'object', 'place', 'moral', 'language', 'narrator'];
   const isBlocking =
     generationState === 'generating_story' ||
-    generationState === 'generating_audio' ||
-    hasPendingStoryGeneration ||
-    hasPendingAudioGeneration;
+    generationState === 'generating_audio';
 
   return (
     <div className="min-h-screen bg-[url('/Interfaz.png')] bg-cover bg-center pb-32">
@@ -897,7 +895,7 @@ export default function Home() {
 
       {isBlocking && (
         <GenerationLoader
-          phase={hasPendingStoryGeneration || generationState === 'generating_story' ? 'story' : 'audio'}
+          phase={generationState === 'generating_story' ? 'story' : 'audio'}
         />
       )}
 
