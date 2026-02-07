@@ -76,6 +76,10 @@ export default function Home() {
   const [isLoadingStories, setIsLoadingStories] = useState(false);
   const [storiesError, setStoriesError] = useState<string | null>(null);
   const isFetchingStoriesRef = useRef(false);
+  const startRequestControllerRef = useRef<AbortController | null>(null);
+  const [activeGenerationStoryId, setActiveGenerationStoryId] = useState<string | null>(null);
+  const [showGenerationStartModal, setShowGenerationStartModal] = useState(false);
+  const [isCancellingGeneration, setIsCancellingGeneration] = useState(false);
   const [deletingStories, setDeletingStories] = useState<Record<string, boolean>>({});
   const [deletingAudios, setDeletingAudios] = useState<Record<string, boolean>>({});
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
@@ -106,6 +110,8 @@ export default function Home() {
   const handleReset = () => {
     setStoryState({});
     setGenerationState('idle');
+    setShowGenerationStartModal(false);
+    setActiveGenerationStoryId(null);
   };
 
   const isFormComplete = () => {
@@ -114,7 +120,7 @@ export default function Home() {
       .every((field) => storyState[field.id]?.optionId);
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
     if (!isFormComplete()) {
       return;
     }
@@ -125,9 +131,29 @@ export default function Home() {
       return;
     }
 
+    setShowGenerationStartModal(true);
+  };
+
+  const handleStartGeneration = async () => {
+    if (!isFormComplete()) {
+      return;
+    }
+
+    if (!session) {
+      setError('Debes iniciar sesiÃ³n para crear cuentos.');
+      setGenerationState('error');
+      return;
+    }
+
+    setShowGenerationStartModal(false);
     setGenerationState('generating_story');
     setError(null);
+    setStoriesError(null);
     setActiveStory(null);
+    setActiveGenerationStoryId(null);
+
+    const controller = new AbortController();
+    startRequestControllerRef.current = controller;
 
     try {
       const response = await fetch('/api/story/start', {
@@ -137,6 +163,7 @@ export default function Home() {
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ storyState }),
+        signal: controller.signal,
       });
 
       const data = await response.json();
@@ -160,16 +187,97 @@ export default function Home() {
           },
         };
         setStories((prev) => [newStory, ...prev.filter((story) => story.id !== newStory.id)]);
+        setActiveGenerationStoryId(newStory.id);
         setGenerationState('idle');
         setActiveView('home');
       } else {
         throw new Error('No se pudo iniciar la generación');
       }
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setGenerationState('idle');
+        return;
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
       setError(errorMessage);
       setGenerationState('error');
       console.error('Error al generar cuento:', err);
+    } finally {
+      if (startRequestControllerRef.current === controller) {
+        startRequestControllerRef.current = null;
+      }
+    }
+  };
+
+  const getPendingStoryForCancellation = () => {
+    if (activeGenerationStoryId) {
+      const activePendingStory = stories.find((story) => {
+        if (story.id !== activeGenerationStoryId) {
+          return false;
+        }
+        const status = (story.status || '').trim();
+        return PENDING_STORY_STATUSES.has(status) || story.audio?.status === 'pending';
+      });
+      if (activePendingStory) {
+        return activePendingStory;
+      }
+    }
+
+    return stories.find((story) => {
+      const status = (story.status || '').trim();
+      return PENDING_STORY_STATUSES.has(status) || story.audio?.status === 'pending';
+    });
+  };
+
+  const handleCancelGeneration = async () => {
+    startRequestControllerRef.current?.abort();
+    startRequestControllerRef.current = null;
+
+    if (!session) {
+      setStoriesError('Debes iniciar sesión para cancelar la generacion.');
+      setGenerationState('idle');
+      setShowGenerationStartModal(false);
+      return;
+    }
+
+    const storyToCancel = getPendingStoryForCancellation();
+    if (!storyToCancel) {
+      setGenerationState('idle');
+      setShowGenerationStartModal(false);
+      setActiveGenerationStoryId(null);
+      return;
+    }
+
+    setIsCancellingGeneration(true);
+    setStoriesError(null);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/stories/${storyToCancel.id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al cancelar la generacion');
+      }
+
+      setStories((prev) => prev.filter((story) => story.id !== storyToCancel.id));
+      if (activeStory?.id === storyToCancel.id) {
+        setActiveStory(null);
+      }
+      setActiveGenerationStoryId(null);
+      setGenerationState('idle');
+      setShowGenerationStartModal(false);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      setStoriesError(errorMessage);
+    } finally {
+      setIsCancellingGeneration(false);
     }
   };
 
@@ -222,6 +330,9 @@ export default function Home() {
       setStories((prev) => prev.filter((story) => story.id !== storyId));
       if (activeStory?.id === storyId) {
         setActiveStory(null);
+      }
+      if (activeGenerationStoryId === storyId) {
+        setActiveGenerationStoryId(null);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
@@ -307,6 +418,28 @@ export default function Home() {
     PENDING_STORY_STATUSES.has((story.status || '').trim())
   );
   const hasPendingAudioGeneration = stories.some((story) => story.audio?.status === 'pending');
+  const pendingGenerationStory = getPendingStoryForCancellation();
+  const hasAnyPendingGeneration = hasPendingStoryGeneration || hasPendingAudioGeneration;
+
+  useEffect(() => {
+    if (!activeGenerationStoryId) {
+      return;
+    }
+
+    const activeStoryStatus = stories.find((story) => story.id === activeGenerationStoryId);
+    if (!activeStoryStatus) {
+      setActiveGenerationStoryId(null);
+      return;
+    }
+
+    const status = (activeStoryStatus.status || '').trim();
+    const isStillPending =
+      PENDING_STORY_STATUSES.has(status) || activeStoryStatus.audio?.status === 'pending';
+
+    if (!isStillPending) {
+      setActiveGenerationStoryId(null);
+    }
+  }, [stories, activeGenerationStoryId]);
 
   useEffect(() => {
     if (!isAuthLoading) {
@@ -321,7 +454,7 @@ export default function Home() {
   }, [activeView, session?.access_token, isAuthLoading]);
 
   useEffect(() => {
-    if (!session || (!hasPendingStoryGeneration && !hasPendingAudioGeneration)) {
+    if (!session || !hasAnyPendingGeneration) {
       return;
     }
 
@@ -330,13 +463,18 @@ export default function Home() {
     }, 5000);
 
     return () => window.clearInterval(interval);
-  }, [session?.access_token, hasPendingStoryGeneration, hasPendingAudioGeneration]);
+  }, [session?.access_token, hasAnyPendingGeneration]);
 
   useEffect(() => {
     if (!session) {
+      startRequestControllerRef.current?.abort();
+      startRequestControllerRef.current = null;
       setStories([]);
       setActiveStory(null);
       setGenerationState('idle');
+      setShowGenerationStartModal(false);
+      setActiveGenerationStoryId(null);
+      setIsCancellingGeneration(false);
     }
   }, [session]);
 
@@ -372,11 +510,16 @@ export default function Home() {
   const handleSignOut = async () => {
     setAuthError(null);
     setAuthMessage(null);
+    startRequestControllerRef.current?.abort();
+    startRequestControllerRef.current = null;
     await signOut();
     setStories([]);
     setActiveStory(null);
     setStoryState({});
     setGenerationState('idle');
+    setShowGenerationStartModal(false);
+    setActiveGenerationStoryId(null);
+    setIsCancellingGeneration(false);
     setActiveView('home');
   };
 
@@ -471,8 +614,9 @@ export default function Home() {
   const isBlocking =
     generationState === 'generating_story' ||
     generationState === 'generating_audio' ||
-    hasPendingStoryGeneration ||
-    hasPendingAudioGeneration;
+    hasAnyPendingGeneration;
+  const loaderPhase: 'story' | 'audio' =
+    hasPendingStoryGeneration || generationState === 'generating_story' ? 'story' : 'audio';
 
   return (
     <div className="min-h-screen bg-[url('/Interfaz.png')] bg-cover bg-center pb-32">
@@ -637,14 +781,6 @@ export default function Home() {
                 </button>
               </div>
             </div>
-
-            {(hasPendingStoryGeneration || hasPendingAudioGeneration) && (
-              <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                {hasPendingStoryGeneration
-                  ? 'Generando cuento... Puedes cerrar la app y volver luego.'
-                  : 'Generando audio... Puedes cerrar la app y volver luego.'}
-              </div>
-            )}
 
             {activeView === 'home' ? (
           <div className="space-y-6">
@@ -895,9 +1031,42 @@ export default function Home() {
         />
       )}
 
+      {showGenerationStartModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl border border-pink-100 p-6">
+            <h2 className="text-xl font-bold text-pink-600 handwriting">
+              Nuestra fábrica de cuentos puede tardar entre 3 y 7 minutos en crearlo. ¿Empezamos?
+            </h2>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowGenerationStartModal(false)}
+                className="px-4 py-2 rounded-full bg-white text-slate-600 text-sm font-semibold border border-slate-200 hover:bg-slate-50 transition-colors"
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleStartGeneration()}
+                className="px-5 py-2 rounded-full bg-pink-500 text-white text-sm font-semibold shadow-sm hover:bg-pink-600 transition-colors"
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isBlocking && (
         <GenerationLoader
-          phase={hasPendingStoryGeneration || generationState === 'generating_story' ? 'story' : 'audio'}
+          key={loaderPhase}
+          phase={loaderPhase}
+          onCancel={
+            pendingGenerationStory || generationState === 'generating_story'
+              ? () => void handleCancelGeneration()
+              : undefined
+          }
+          isCancelling={isCancellingGeneration}
         />
       )}
 
@@ -992,6 +1161,7 @@ export default function Home() {
     </div>
   );
 }
+
 
 
 
