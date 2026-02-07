@@ -126,7 +126,7 @@ export default function Home() {
     }
 
     if (!session) {
-      setError('Debes iniciar sesiÃ³n para crear cuentos.');
+      setError('Debes iniciar sesión para crear cuentos.');
       setGenerationState('error');
       return;
     }
@@ -140,7 +140,7 @@ export default function Home() {
     }
 
     if (!session) {
-      setError('Debes iniciar sesiÃ³n para crear cuentos.');
+      setError('Debes iniciar sesión para crear cuentos.');
       setGenerationState('error');
       return;
     }
@@ -191,7 +191,7 @@ export default function Home() {
         setGenerationState('idle');
         setActiveView('home');
       } else {
-        throw new Error('No se pudo iniciar la generación');
+        throw new Error('No se pudo iniciar la generaci�n');
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
@@ -235,7 +235,7 @@ export default function Home() {
     startRequestControllerRef.current = null;
 
     if (!session) {
-      setStoriesError('Debes iniciar sesión para cancelar la generacion.');
+      setStoriesError('Debes iniciar sesi�n para cancelar la generacion.');
       setGenerationState('idle');
       setShowGenerationStartModal(false);
       return;
@@ -302,12 +302,12 @@ export default function Home() {
   };
 
   const handleDeleteStory = async (storyId: string) => {
-    if (!confirm('¿Seguro que quieres eliminar este cuento?')) {
+    if (!confirm('�Seguro que quieres eliminar este cuento?')) {
       return;
     }
 
     if (!session) {
-      setStoriesError('Debes iniciar sesión para eliminar cuentos.');
+      setStoriesError('Debes iniciar sesi�n para eliminar cuentos.');
       return;
     }
 
@@ -343,12 +343,12 @@ export default function Home() {
   };
 
   const handleDeleteAudio = async (storyId: string) => {
-    if (!confirm('¿Seguro que quieres eliminar este audio?')) {
+    if (!confirm('�Seguro que quieres eliminar este audio?')) {
       return;
     }
 
     if (!session) {
-      setStoriesError('Debes iniciar sesión para eliminar audios.');
+      setStoriesError('Debes iniciar sesi�n para eliminar audios.');
       return;
     }
 
@@ -388,7 +388,7 @@ export default function Home() {
     try {
       if (!session) {
         setStories([]);
-        setStoriesError('Inicia sesión para ver tus cuentos.');
+        setStoriesError('Inicia sesi�n para ver tus cuentos.');
         return;
       }
 
@@ -487,7 +487,7 @@ export default function Home() {
     const password = authPassword;
 
     if (!email || !password) {
-      setAuthError('Completa email y contraseña.');
+      setAuthError('Completa email y contrase�a.');
       return;
     }
 
@@ -502,7 +502,7 @@ export default function Home() {
     } else if (authMode === 'signup' && !response.data.session) {
       setAuthMessage('Registro exitoso. Revisa tu correo para confirmar tu cuenta.');
     } else {
-      setAuthMessage('Sesión iniciada.');
+      setAuthMessage('Sesi�n iniciada.');
     }
     setAuthPending(false);
   };
@@ -619,13 +619,13 @@ export default function Home() {
     hasPendingStoryGeneration || generationState === 'generating_story' ? 'story' : 'audio';
 
   return (
-    <div className="min-h-screen bg-[url('/Interfaz.png')] bg-cover bg-center pb-32">
+    <div className="min-h-screen bg-[url('/Interfaz.webp')] bg-cover bg-center pb-32">
             <header className="bg-transparent sticky top-0 z-30">
         <div className="max-w-screen-xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="px-4 py-2 rounded-2xl bg-white/70 backdrop-blur-md border border-white/60 shadow-sm">
             <h1 className="text-2xl md:text-3xl font-bold text-pink-600 handwriting">
               {activeView === 'home'
-                ? 'Crea tu historia única'
+                ? 'Crea tu historia �nica'
                 : activeView === 'audio'
                   ? 'Mis audios'
                   : 'Mis cuentos'}
@@ -655,7 +655,7 @@ export default function Home() {
         {isAuthLoading ? (
           <div className="min-h-[70vh] flex items-center justify-center">
             <div className="rounded-3xl bg-white/70 backdrop-blur-md border border-white/70 shadow-sm px-6 py-4 text-slate-500">
-              Cargando sesión...
+              Cargando sesi�n...
             </div>
           </div>
         ) : !user ? (
@@ -663,10 +663,10 @@ export default function Home() {
             <div className="w-full max-w-xl rounded-3xl bg-white/70 backdrop-blur-md border border-white/70 shadow-xl p-6 md:p-8">
               <div className="mb-6 text-center">
                 <h2 className="text-2xl md:text-3xl font-bold text-pink-600 handwriting">
-                  Bienvenido a tu fábrica de cuentos
+                  Bienvenido a tu f�brica de cuentos
                 </h2>
                 <p className="text-slate-600 mt-2">
-                  Inicia sesión o crea una cuenta para comenzar.
+                  Inicia sesi�n o crea una cuenta para comenzar.
                 </p>
               </div>
               <form className="space-y-4" onSubmit={handleAuthSubmit}>
@@ -680,7 +680,7 @@ export default function Home() {
                         : 'bg-white/80 text-pink-600 border border-pink-200'
                     }`}
                   >
-                    Iniciar sesión
+                    Iniciar sesi�n
                   </button>
                   <button
                     type="button"
@@ -709,7 +709,7 @@ export default function Home() {
                     />
                   </label>
                   <label className="text-sm text-slate-600">
-                    Contraseña
+                    Contrase�a
                     <input
                       type="password"
                       value={authPassword}
@@ -757,7 +757,7 @@ export default function Home() {
                     >
                       {authRecoveryPending
                         ? 'Enviando enlace...'
-                        : '¿Has olvidado la contraseña?'}
+                        : '�Has olvidado la contrase�a?'}
                     </button>
                   </div>
                 )}
@@ -769,7 +769,7 @@ export default function Home() {
             <div className="mb-6 rounded-3xl bg-white/60 backdrop-blur-md border border-white/70 shadow-sm p-5">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm text-slate-500">Sesión activa</p>
+                  <p className="text-sm text-slate-500">Sesi�n activa</p>
                   <p className="text-base font-semibold text-slate-800">{user.email}</p>
                 </div>
                 <button
@@ -777,7 +777,7 @@ export default function Home() {
                   onClick={handleSignOut}
                   className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-white/90 text-pink-600 text-sm font-semibold border border-pink-200 shadow-sm hover:bg-white transition-colors"
                 >
-                  Cerrar sesión
+                  Cerrar sesi�n
                 </button>
               </div>
             </div>
@@ -794,6 +794,7 @@ export default function Home() {
                     title={field.title}
                     selection={storyState[fieldId] || {}}
                     cardIcon={field.cardIcon}
+                    prioritizeImage={fieldId === fieldOrder[0]}
                     onClick={() => handleCardClick(fieldId)}
                   />
                 );
@@ -813,7 +814,7 @@ export default function Home() {
               <p className="text-slate-500">Cargando cuentos...</p>
             ) : stories.length === 0 ? (
               <div className="bg-white border border-pink-100 rounded-2xl p-6 text-slate-600">
-                Aún no has creado ningún cuento. Crea uno y aparecerá aquí.
+                A�n no has creado ning�n cuento. Crea uno y aparecer� aqu�.
               </div>
             ) : (
               <div className="grid gap-4">
@@ -1035,7 +1036,7 @@ export default function Home() {
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl border border-pink-100 p-6">
             <h2 className="text-xl font-bold text-pink-600 handwriting">
-              Nuestra fábrica de cuentos puede tardar entre 3 y 7 minutos en crearlo. ¿Empezamos?
+              Nuestra f�brica de cuentos puede tardar entre 3 y 7 minutos en crearlo. �Empezamos?
             </h2>
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
@@ -1076,14 +1077,14 @@ export default function Home() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-pink-100 px-6 py-4 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-pink-600">
-                {error ? '❌ Error' : activeStory?.title || '✨ Tu cuento generado'}
+                {error ? '? Error' : activeStory?.title || '? Tu cuento generado'}
               </h2>
               <button
                 onClick={handleCloseStory}
                 className="p-2 rounded-full hover:bg-pink-100 transition-colors"
                 title="Cerrar"
               >
-                <span className="text-2xl">✕</span>
+                <span className="text-2xl">?</span>
               </button>
             </div>
             <div className="p-6">
@@ -1161,6 +1162,7 @@ export default function Home() {
     </div>
   );
 }
+
 
 
 

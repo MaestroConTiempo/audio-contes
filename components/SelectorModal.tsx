@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { StoryField, StoryOption, StorySelection } from '@/lib/storyData';
 
 interface SelectorModalProps {
@@ -111,9 +112,12 @@ export default function SelectorModal({
                     }`}
                   >
                     {option.image ? (
-                      <img
+                      <Image
                         src={option.image}
                         alt={option.name}
+                        width={320}
+                        height={320}
+                        sizes="(max-width: 767px) calc((100vw - 96px) / 2), 197px"
                         className="w-full h-32 md:h-40 mx-auto mb-2 object-cover rounded-xl"
                       />
                     ) : (

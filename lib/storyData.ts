@@ -27,107 +27,107 @@ export const storyFields: Record<string, StoryField> = {
       {
         id: 'luna-inventora',
         name: 'Luna, inventora de chicles elásticos',
-        image: '/option-icons/heroes/Luna.png',
+        image: '/option-icons/heroes/Luna.webp',
       },
       {
         id: 'bruno-domador',
         name: 'Bruno, domador de nubes',
-        image: '/option-icons/heroes/Bruno.png',
+        image: '/option-icons/heroes/Bruno.webp',
       },
       {
         id: 'vera-detective',
         name: 'Vera, detective de huellas de purpurina',
-        image: '/option-icons/heroes/Vera.png',
+        image: '/option-icons/heroes/Vera.webp',
       },
       {
         id: 'iris-jardinera',
         name: 'Iris, jardinera de plantas que cantan',
-        image: '/option-icons/heroes/Iris.png',
+        image: '/option-icons/heroes/Iris.webp',
       },
       {
         id: 'elia-pintora',
         name: 'Elia, pintora que dibuja puertas',
-        image: '/option-icons/heroes/Elia.png',
+        image: '/option-icons/heroes/Elia.webp',
       },
       {
         id: 'pablo-musico',
         name: 'Pablo, músico que afina el viento',
-        image: '/option-icons/heroes/Pablo.png',
+        image: '/option-icons/heroes/Pablo.webp',
       },
       {
         id: 'mara-guardiana',
         name: 'Mara, guardiana del reloj que atrasa',
-        image: '/option-icons/heroes/Mara.png',
+        image: '/option-icons/heroes/Mara.webp',
       },
       {
         id: 'noa-cuidadora',
         name: 'Noa, cuidadora de monstruos tímidos',
-        image: '/option-icons/heroes/Noa.png',
+        image: '/option-icons/heroes/Noa.webp',
       },
       {
         id: 'adri-coleccionista',
         name: 'Adri, coleccionista de sonidos',
-        image: '/option-icons/heroes/Adri.png',
+        image: '/option-icons/heroes/Adri.webp',
       },
       {
         id: 'clara-bibliotecaria',
         name: 'Clara, bibliotecaria de cuentos que se mueven',
-        image: '/option-icons/heroes/Clara.png',
+        image: '/option-icons/heroes/Clara.webp',
       },
       {
         id: 'leo-chef',
         name: 'Leo, chef de sopas con superpoderes',
-        image: '/option-icons/heroes/Leo.png',
+        image: '/option-icons/heroes/Leo.webp',
       },
       {
         id: 'sam-corredor',
         name: 'Sam, corredor de mapas',
-        image: '/option-icons/heroes/Sam.png',
+        image: '/option-icons/heroes/Sam.webp',
       },
       {
         id: 'carla-cientifica',
         name: 'Carla, científica de burbujas gigantes',
-        image: '/option-icons/heroes/Carla.png',
+        image: '/option-icons/heroes/Carla.webp',
       },
       {
         id: 'martin-cartero',
         name: 'Martín, cartero de cartas sin destinatario',
-        image: '/option-icons/heroes/Martín.png',
+        image: '/option-icons/heroes/Martín.webp',
       },
       {
         id: 'ariadna-entrenadora',
         name: 'Ariadna, entrenadora de dragones mini',
-        image: '/option-icons/heroes/Ariadna.png',
+        image: '/option-icons/heroes/Ariadna.webp',
       },
       {
         id: 'iker-cuidador',
         name: 'Iker, cuidador de estrellas caídas',
-        image: '/option-icons/heroes/Iker.png',
+        image: '/option-icons/heroes/Iker.webp',
       },
       {
         id: 'sofia-exploradora',
         name: 'Sofía, exploradora de cajones perdidos',
-        image: '/option-icons/heroes/Sofia.png',
+        image: '/option-icons/heroes/Sofia.webp',
       },
       {
         id: 'nico-nino',
         name: 'Nico, niño que entiende a los semáforos',
-        image: '/option-icons/heroes/Nico.png',
+        image: '/option-icons/heroes/Nico.webp',
       },
       {
         id: 'ines-domadora',
         name: 'Inés, domadora de sombras traviesas',
-        image: '/option-icons/heroes/Inés.png',
+        image: '/option-icons/heroes/Inés.webp',
       },
       {
         id: 'gael-guardabosques',
         name: 'Gael, guardabosques de hojas brillantes',
-        image: '/option-icons/heroes/Gael.png',
+        image: '/option-icons/heroes/Gael.webp',
       },
       {
         id: 'custom',
         name: 'Mi propio protagonista',
-        image: '/option-icons/misc/Inventado.png',
+        image: '/option-icons/misc/Inventado.webp',
       },
     ],
   },
@@ -519,3 +519,4 @@ export interface StorySelection {
 }
 
 export type StoryState = Record<string, StorySelection>;
+

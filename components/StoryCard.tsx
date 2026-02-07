@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { StorySelection } from '@/lib/storyData';
 
 interface StoryCardProps {
@@ -5,6 +6,7 @@ interface StoryCardProps {
   selection: StorySelection;
   onClick: () => void;
   cardIcon?: string;
+  prioritizeImage?: boolean;
 }
 
 export default function StoryCard({
@@ -12,6 +14,7 @@ export default function StoryCard({
   selection,
   onClick,
   cardIcon,
+  prioritizeImage = false,
 }: StoryCardProps) {
   const hasSelection = Boolean(selection.optionId || selection.freeText);
 
@@ -29,8 +32,13 @@ export default function StoryCard({
           <>
             <div className="w-20 h-20 sm:w-28 sm:h-28 bg-gradient-to-br from-pink-200/90 to-purple-200/90 rounded-full flex items-center justify-center text-3xl sm:text-4xl mb-2 sm:mb-3 overflow-hidden shadow-sm">
               {selection.image ? (
-                <img
+                <Image
                   src={selection.image}
+                  width={112}
+                  height={112}
+                  sizes="(max-width: 639px) 80px, 112px"
+                  priority={prioritizeImage}
+                  fetchPriority={prioritizeImage ? 'high' : 'auto'}
                   alt={selection.optionName || 'Selección'}
                   className="w-full h-full object-cover"
                 />

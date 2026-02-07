@@ -48,7 +48,7 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[url('/Interfaz.png')] bg-cover bg-center p-4 md:p-8">
+    <div className="min-h-screen bg-[url('/Interfaz.webp')] bg-cover bg-center p-4 md:p-8">
       <div className="max-w-xl mx-auto mt-10 rounded-3xl bg-white/80 backdrop-blur-md border border-white/70 shadow-xl p-6 md:p-8">
         <h1 className="text-2xl md:text-3xl font-bold text-pink-600 handwriting text-center">
           Cambiar contrasena
@@ -129,3 +129,4 @@ export default function ResetPasswordPage() {
     </div>
   );
 }
+
