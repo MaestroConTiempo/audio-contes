@@ -1,11 +1,12 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import StoryCard from '@/components/StoryCard';
 import SelectorModal from '@/components/SelectorModal';
 import BottomNav from '@/components/BottomNav';
 import GenerationLoader from '@/components/GenerationLoader';
-import { storyFields, StoryState, StoryField } from '@/lib/storyData';
+import { storyFields, StoryState, StoryField, StorySelection } from '@/lib/storyData';
 import { useAuth } from '@/components/AuthProvider';
 import { translateSupabaseAuthError } from '@/lib/authErrorMessages';
 
@@ -89,6 +90,9 @@ export default function Home() {
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [authPending, setAuthPending] = useState(false);
   const [authRecoveryPending, setAuthRecoveryPending] = useState(false);
+  const [activeStoryPanel, setActiveStoryPanel] = useState<'overview' | 'read' | 'listen'>(
+    'overview'
+  );
 
   const handleCardClick = (fieldId: string) => {
     if (generationState === 'generating_story' || generationState === 'generating_audio') {
@@ -97,7 +101,7 @@ export default function Home() {
     setActiveField(storyFields[fieldId]);
   };
 
-  const handleModalConfirm = (selection: any) => {
+  const handleModalConfirm = (selection: StorySelection) => {
     if (activeField) {
       setStoryState({
         ...storyState,
@@ -295,6 +299,7 @@ export default function Home() {
 
   const handleCloseStory = () => {
     setActiveStory(null);
+    setActiveStoryPanel('overview');
     setError(null);
     if (generationState === 'error' || generationState === 'done') {
       setGenerationState('idle');
@@ -330,6 +335,7 @@ export default function Home() {
       setStories((prev) => prev.filter((story) => story.id !== storyId));
       if (activeStory?.id === storyId) {
         setActiveStory(null);
+        setActiveStoryPanel('overview');
       }
       if (activeGenerationStoryId === storyId) {
         setActiveGenerationStoryId(null);
@@ -561,6 +567,38 @@ export default function Home() {
     });
   };
 
+  const getStoryCoverImage = (story: StoryRecord) => {
+    const imageFromInputs = story.inputs?.hero?.image?.trim();
+    if (imageFromInputs) {
+      return imageFromInputs;
+    }
+
+    const heroOptionId = story.inputs?.hero?.optionId?.trim();
+    if (heroOptionId) {
+      const heroOption = storyFields.hero.options.find((option) => option.id === heroOptionId);
+      if (heroOption?.image) {
+        return heroOption.image;
+      }
+    }
+
+    return '/option-icons/misc/Inventado.webp';
+  };
+
+  const getStoryDurationLabel = (story?: StoryRecord | null) => {
+    const text = story?.story_text?.trim();
+    if (!text) {
+      return 'Sin duracion';
+    }
+
+    const words = text.split(/\s+/).filter(Boolean).length;
+    if (words === 0) {
+      return 'Sin duracion';
+    }
+
+    const minutes = Math.max(1, Math.ceil(words / 130));
+    return `${minutes} min aprox`;
+  };
+
   const renderStoryText = (value?: string | null) => {
     if (!value) {
       return null;
@@ -611,6 +649,8 @@ export default function Home() {
   };
 
   const fieldOrder = ['hero', 'sidekick', 'object', 'place', 'moral', 'language', 'narrator'];
+  const activeStoryCover = activeStory ? getStoryCoverImage(activeStory) : null;
+  const activeStoryDuration = getStoryDurationLabel(activeStory);
   const isBlocking =
     generationState === 'generating_story' ||
     generationState === 'generating_audio' ||
@@ -817,13 +857,14 @@ export default function Home() {
                 Aún no has creado ningún cuento. Crea uno y aparecerá aquí.
               </div>
             ) : (
-              <div className="grid gap-4">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2.5">
                 {stories.map((story) => {
-                  const storyDate = formatStoryDate(story.created_at);
                   const isDeleting = Boolean(deletingStories[story.id]);
                   const status = (story.status || '').trim();
                   const isPendingStory = PENDING_STORY_STATUSES.has(status);
                   const canOpenStory = Boolean(story.story_text) && !isPendingStory;
+                  const storyCover = getStoryCoverImage(story);
+                  const storyDuration = getStoryDurationLabel(story);
                   const statusLabel =
                     status === 'error'
                       ? 'Error'
@@ -833,54 +874,52 @@ export default function Home() {
                           ? 'Generando'
                           : status || 'Generado';
                   return (
-                    <div
-                      key={story.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        if (canOpenStory) {
-                          setActiveStory(story);
-                        }
-                      }}
-                      onKeyDown={(event) => {
-                        if ((event.key === 'Enter' || event.key === ' ') && canOpenStory) {
-                          event.preventDefault();
-                          setActiveStory(story);
-                        }
-                      }}
-                      className={`text-left bg-white rounded-2xl border border-pink-100 p-5 shadow-sm transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 ${canOpenStory ? 'hover:shadow-md cursor-pointer' : 'cursor-default'}`}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <h3 className="text-lg font-semibold text-slate-800">
+                    <div key={story.id} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (canOpenStory) {
+                            setActiveStory(story);
+                            setActiveStoryPanel('overview');
+                          }
+                        }}
+                        disabled={!canOpenStory}
+                        className={`group relative w-full aspect-square overflow-hidden rounded-2xl border border-pink-100 bg-white shadow-sm transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 ${
+                          canOpenStory ? 'hover:shadow-md cursor-pointer' : 'cursor-default opacity-85'
+                        }`}
+                      >
+                        <Image
+                          src={storyCover}
+                          alt={story.title || 'Cuento infantil'}
+                          fill
+                          sizes="(max-width: 640px) 46vw, (max-width: 768px) 30vw, (max-width: 1024px) 23vw, 18vw"
+                          className="object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+                        {statusLabel !== 'Listo' && (
+                          <span className="absolute left-2 top-2 rounded-md bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
+                            {statusLabel}
+                          </span>
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 p-2 text-left">
+                          <p className="text-xs font-semibold text-white truncate">
                             {story.title || 'Cuento infantil'}
-                          </h3>
-                          {storyDate && (
-                            <p className="text-xs text-slate-400 mt-1">{storyDate}</p>
-                          )}
+                          </p>
+                          <p className="text-[11px] text-white/90">
+                            {isPendingStory ? 'Generando...' : storyDuration}
+                          </p>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-slate-400 uppercase tracking-wide">{statusLabel}</span>
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void handleDeleteStory(story.id);
-                            }}
-                            disabled={isDeleting}
-                            className="text-xs font-semibold text-red-500 hover:text-red-600 disabled:opacity-60 disabled:cursor-not-allowed"
-                          >
-                            {isDeleting ? 'Eliminando...' : 'Eliminar'}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="mt-3 text-pink-600 text-sm font-semibold">
-                        {isPendingStory
-                          ? 'Generando cuento...'
-                          : status === 'error'
-                            ? 'Error al generar. Inténtalo de nuevo.'
-                            : 'Leer cuento'}
-                      </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void handleDeleteStory(story.id);
+                        }}
+                        disabled={isDeleting}
+                        className="absolute right-2 top-2 inline-flex items-center justify-center rounded-md bg-red-500/90 px-2 py-1 text-[10px] font-semibold text-white shadow-sm hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {isDeleting ? '...' : 'X'}
+                      </button>
                     </div>
                   );
                 })}
@@ -1074,7 +1113,7 @@ export default function Home() {
       {/* Modal para mostrar el cuento generado */}
       {(error || activeStory) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[88vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-pink-100 px-6 py-4 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-pink-600">
                 {error ? 'Error' : activeStory?.title || 'Tu cuento generado'}
@@ -1095,68 +1134,124 @@ export default function Home() {
                   <p className="font-semibold mb-2">No se pudo generar el cuento:</p>
                   <p>{error}</p>
                 </div>
-              ) : (
-                <div className="prose prose-lg max-w-none">
-                  <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
-                    {renderStoryText(activeStory?.story_text)}
-                  </div>
-                  <div className="mt-6">
-                    {activeStory?.audio?.audio_url ? (
-                      <div className="space-y-3">
-                        <audio
-                          controls
-                          src={activeStory.audio.audio_url || undefined}
-                          className="w-full"
-                        />
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (activeStory.audio?.audio_url) {
-                                void downloadAudio(
-                                  activeStory.audio.audio_url,
-                                  activeStory.title
-                                );
-                              }
-                            }}
-                            className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-pink-500 text-white text-sm font-semibold shadow-sm hover:bg-pink-600 transition-colors"
-                          >
-                            Descargar audio
-                          </button>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              const audioUrl = activeStory.audio?.audio_url;
-                              if (!audioUrl) return;
-                              if (typeof navigator !== 'undefined' && 'share' in navigator) {
-                                try {
-                                  await navigator.share({
-                                    title: activeStory.title || 'Mi cuento',
-                                    url: audioUrl,
-                                  });
-                                } catch {
-                                  // Ignore cancel/share errors
-                                }
-                              } else {
-                                window.open(audioUrl, '_blank');
-                              }
-                            }}
-                            className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-white/80 text-pink-600 text-sm font-semibold border border-pink-200 shadow-sm hover:bg-white transition-colors"
-                          >
-                            Compartir
-                          </button>
-                        </div>
+              ) : activeStory ? (
+                <div className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-[220px_1fr]">
+                    <div className="relative aspect-square overflow-hidden rounded-2xl border border-pink-100 bg-pink-50">
+                      <Image
+                        src={activeStoryCover || '/option-icons/misc/Inventado.webp'}
+                        alt={activeStory.title || 'Cuento infantil'}
+                        fill
+                        sizes="(max-width: 768px) 80vw, 220px"
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="flex flex-col justify-between gap-4">
+                      <div>
+                        <h3 className="text-2xl font-bold text-slate-800">
+                          {activeStory.title || 'Cuento infantil'}
+                        </h3>
+                        <p className="text-sm text-slate-500 mt-1">Duracion: {activeStoryDuration}</p>
+                        {formatStoryDate(activeStory.created_at) && (
+                          <p className="text-xs text-slate-400 mt-1">
+                            {formatStoryDate(activeStory.created_at)}
+                          </p>
+                        )}
                       </div>
-                    ) : activeStory?.audio?.status === 'pending' ? (
-                      <p className="text-sm text-slate-500">Generando audio...</p>
-                    ) : activeStory?.audio?.status === 'error' ? (
-                      <p className="text-sm text-red-500">Error al generar el audio.</p>
-                    ) : (
-                      <p className="text-sm text-slate-500">Audio no disponible.</p>
-                    )}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setActiveStoryPanel('read')}
+                          className={`inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+                            activeStoryPanel === 'read'
+                              ? 'bg-pink-500 text-white'
+                              : 'bg-white text-pink-600 border border-pink-200 hover:bg-pink-50'
+                          }`}
+                        >
+                          Leer
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveStoryPanel('listen')}
+                          className={`inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+                            activeStoryPanel === 'listen'
+                              ? 'bg-pink-500 text-white'
+                              : 'bg-white text-pink-600 border border-pink-200 hover:bg-pink-50'
+                          }`}
+                        >
+                          Escuchar
+                        </button>
+                      </div>
+                    </div>
                   </div>
+                  {activeStoryPanel === 'read' ? (
+                    <div className="rounded-2xl border border-pink-100 bg-pink-50/30 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-pink-600 mb-2">Lectura</p>
+                      <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
+                        {renderStoryText(activeStory.story_text)}
+                      </div>
+                    </div>
+                  ) : activeStoryPanel === 'listen' ? (
+                    <div className="rounded-2xl border border-pink-100 bg-pink-50/30 p-4 space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-pink-600">Audio</p>
+                      {activeStory.audio?.audio_url ? (
+                        <div className="space-y-3">
+                          <audio
+                            controls
+                            src={activeStory.audio.audio_url || undefined}
+                            className="w-full"
+                          />
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (activeStory.audio?.audio_url) {
+                                  void downloadAudio(activeStory.audio.audio_url, activeStory.title);
+                                }
+                              }}
+                              className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-pink-500 text-white text-sm font-semibold shadow-sm hover:bg-pink-600 transition-colors"
+                            >
+                              Descargar audio
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const audioUrl = activeStory.audio?.audio_url;
+                                if (!audioUrl) return;
+                                if (typeof navigator !== 'undefined' && 'share' in navigator) {
+                                  try {
+                                    await navigator.share({
+                                      title: activeStory.title || 'Mi cuento',
+                                      url: audioUrl,
+                                    });
+                                  } catch {
+                                    // Ignore cancel/share errors
+                                  }
+                                } else {
+                                  window.open(audioUrl, '_blank');
+                                }
+                              }}
+                              className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-white/80 text-pink-600 text-sm font-semibold border border-pink-200 shadow-sm hover:bg-white transition-colors"
+                            >
+                              Compartir
+                            </button>
+                          </div>
+                        </div>
+                      ) : activeStory.audio?.status === 'pending' ? (
+                        <p className="text-sm text-slate-500">Generando audio...</p>
+                      ) : activeStory.audio?.status === 'error' ? (
+                        <p className="text-sm text-red-500">Error al generar el audio.</p>
+                      ) : (
+                        <p className="text-sm text-slate-500">Audio no disponible.</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-pink-200 bg-pink-50/30 p-4 text-sm text-slate-600">
+                      Elige si quieres leer o escuchar este cuento.
+                    </div>
+                  )}
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
