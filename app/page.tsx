@@ -1077,14 +1077,16 @@ export default function Home() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-pink-100 px-6 py-4 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-pink-600">
-                {error ? '? Error' : activeStory?.title || '? Tu cuento generado'}
+                {error ? 'Error' : activeStory?.title || 'Tu cuento generado'}
               </h2>
               <button
+                type="button"
                 onClick={handleCloseStory}
-                className="p-2 rounded-full hover:bg-pink-100 transition-colors"
+                className="shrink-0 inline-flex items-center justify-center px-3 py-1.5 rounded-full border border-pink-200 bg-white text-sm font-semibold text-pink-700 hover:bg-pink-50 transition-colors"
                 title="Cerrar"
+                aria-label="Cerrar cuento"
               >
-                <span className="text-2xl">?</span>
+                Cerrar
               </button>
             </div>
             <div className="p-6">
