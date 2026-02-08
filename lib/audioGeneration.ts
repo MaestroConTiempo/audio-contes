@@ -44,13 +44,13 @@ const parseBooleanEnv = (value: string | undefined) => {
 const classifyGenaiproError = (errorText: string) => {
   const lower = errorText.toLowerCase();
   if (lower.includes('quota') || lower.includes('credit') || lower.includes('balance')) {
-    return { code: 'credits_or_quota', message: 'Creditos insuficientes en GenAIPro' };
+    return { code: 'credits_or_quota', message: 'Créditos insuficientes en GenAIPro' };
   }
   if (lower.includes('character') || lower.includes('characters') || lower.includes('length')) {
-    return { code: 'provider_char_limit', message: 'Limite de caracteres de GenAIPro' };
+    return { code: 'provider_char_limit', message: 'Límite de caracteres de GenAIPro' };
   }
   if (lower.includes('unauthorized') || lower.includes('forbidden') || lower.includes('token')) {
-    return { code: 'auth_error', message: 'Token invalido o no autorizado en GenAIPro' };
+    return { code: 'auth_error', message: 'Token inválido o no autorizado en GenAIPro' };
   }
   return { code: 'genaipro_error', message: 'Error al generar audio' };
 };

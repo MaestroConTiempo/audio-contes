@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     try {
       body = await request.json();
     } catch {
-      return NextResponse.json({ error: 'Body invalido' }, { status: 400 });
+      return NextResponse.json({ error: 'Body inválido' }, { status: 400 });
     }
 
     const storyState = body.storyState;

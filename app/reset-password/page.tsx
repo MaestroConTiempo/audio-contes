@@ -21,12 +21,12 @@ export default function ResetPasswordPage() {
     setMessage(null);
 
     if (password.length < 6) {
-      setError('La contrasena debe tener al menos 6 caracteres.');
+      setError('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Las contrasenas no coinciden.');
+      setError('Las contraseñas no coinciden.');
       return;
     }
 
@@ -40,7 +40,7 @@ export default function ResetPasswordPage() {
     }
 
     setCompleted(true);
-    setMessage('Contrasena actualizada. Ya puedes iniciar sesion.');
+    setMessage('Contraseña actualizada. Ya puedes iniciar sesión.');
     await signOut();
     setTimeout(() => {
       router.replace('/');
@@ -51,26 +51,26 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen bg-[url('/Interfaz.webp')] bg-cover bg-center p-4 md:p-8">
       <div className="max-w-xl mx-auto mt-10 rounded-3xl bg-white/80 backdrop-blur-md border border-white/70 shadow-xl p-6 md:p-8">
         <h1 className="text-2xl md:text-3xl font-bold text-pink-600 handwriting text-center">
-          Cambiar contrasena
+          Cambiar contraseña
         </h1>
         <p className="text-slate-600 mt-2 text-center">
-          Crea una nueva contrasena para tu cuenta.
+          Crea una nueva contraseña para tu cuenta.
         </p>
 
         {isLoading ? (
           <p className="text-center text-slate-500 mt-6">Validando enlace...</p>
         ) : completed ? (
           <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            Contrasena actualizada. Redirigiendo al login...
+            Contraseña actualizada. Redirigiendo al login...
           </div>
         ) : !user ? (
           <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            El enlace no es valido o ha expirado. Solicita uno nuevo desde el login.
+            El enlace no es válido o ha expirado. Solicita uno nuevo desde el login.
           </div>
         ) : (
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             <label className="block text-sm text-slate-600">
-              Nueva contrasena
+              Nueva contraseña
               <input
                 type="password"
                 value={password}
@@ -83,7 +83,7 @@ export default function ResetPasswordPage() {
             </label>
 
             <label className="block text-sm text-slate-600">
-              Repetir contrasena
+              Repetir contraseña
               <input
                 type="password"
                 value={confirmPassword}
@@ -111,7 +111,7 @@ export default function ResetPasswordPage() {
               disabled={pending}
               className="w-full inline-flex items-center justify-center px-4 py-3 rounded-full bg-pink-500 text-white text-sm font-semibold shadow-sm hover:bg-pink-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {pending ? 'Guardando...' : 'Guardar nueva contrasena'}
+              {pending ? 'Guardando...' : 'Guardar nueva contraseña'}
             </button>
           </form>
         )}

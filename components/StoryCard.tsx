@@ -60,7 +60,7 @@ export default function StoryCard({
             <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white/80 rounded-full flex items-center justify-center text-3xl sm:text-4xl mb-2 sm:mb-3 shadow-sm">
               <span>{cardIcon || '❔'}</span>
             </div>
-            <p className="text-slate-400 text-center text-[11px] sm:text-sm">Elije una opción...</p>
+            <p className="text-slate-400 text-center text-[11px] sm:text-sm">Elige una opción...</p>
           </>
         )}
       </div>

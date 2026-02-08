@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   try {
     payload = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Body invalido' }, { status: 400 });
+    return NextResponse.json({ error: 'Body inválido' }, { status: 400 });
   }
 
   const storyId = payload.story_id?.trim();

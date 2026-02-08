@@ -32,7 +32,7 @@ export function formatStoryStateToMessage(storyState: StoryState): string {
   const selectedLanguage = storyState.language?.optionName;
   if (selectedLanguage) {
     parts.push(`Redacta el cuento en ${selectedLanguage}.`);
-    parts.push('No uses ningun otro idioma distinto al indicado.');
+    parts.push('No uses ningún otro idioma distinto al indicado.');
   }
 
   return parts.join('\n');

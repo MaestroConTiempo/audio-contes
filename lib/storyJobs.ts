@@ -149,9 +149,9 @@ async function processClaimedJob(job: StoryJob): Promise<'completed' | 'failed' 
   if (!story.inputs || typeof story.inputs !== 'object') {
     await updateStoryStatus(story.id, {
       status: 'error',
-      generation_error: 'inputs invalidos o vacios',
+      generation_error: 'inputs inválidos o vacíos',
     });
-    await markJobFailed(job.id, 'inputs invalidos o vacios');
+    await markJobFailed(job.id, 'inputs inválidos o vacíos');
     return 'failed';
   }
 

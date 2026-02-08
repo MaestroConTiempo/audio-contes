@@ -93,7 +93,7 @@ export default function SelectorModal({
               <textarea
                 value={freeText}
                 onChange={(e) => setFreeText(e.target.value)}
-                placeholder={field.placeholder || 'Escribe aqui...'}
+                placeholder={field.placeholder || 'Escribe aquí...'}
                 rows={5}
                 className="w-full px-4 py-3 border-2 border-slate-200 rounded-2xl focus:border-pink-400 focus:outline-none text-slate-800"
               />

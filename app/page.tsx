@@ -191,7 +191,7 @@ export default function Home() {
         setGenerationState('idle');
         setActiveView('home');
       } else {
-        throw new Error('No se pudo iniciar la generaci�n');
+        throw new Error('No se pudo iniciar la generación');
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
@@ -235,7 +235,7 @@ export default function Home() {
     startRequestControllerRef.current = null;
 
     if (!session) {
-      setStoriesError('Debes iniciar sesi�n para cancelar la generacion.');
+      setStoriesError('Debes iniciar sesión para cancelar la generación.');
       setGenerationState('idle');
       setShowGenerationStartModal(false);
       return;
@@ -263,7 +263,7 @@ export default function Home() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Error al cancelar la generacion');
+        throw new Error(data.error || 'Error al cancelar la generación');
       }
 
       setStories((prev) => prev.filter((story) => story.id !== storyToCancel.id));
@@ -302,12 +302,12 @@ export default function Home() {
   };
 
   const handleDeleteStory = async (storyId: string) => {
-    if (!confirm('�Seguro que quieres eliminar este cuento?')) {
+    if (!confirm('¿Seguro que quieres eliminar este cuento?')) {
       return;
     }
 
     if (!session) {
-      setStoriesError('Debes iniciar sesi�n para eliminar cuentos.');
+      setStoriesError('Debes iniciar sesión para eliminar cuentos.');
       return;
     }
 
@@ -343,12 +343,12 @@ export default function Home() {
   };
 
   const handleDeleteAudio = async (storyId: string) => {
-    if (!confirm('�Seguro que quieres eliminar este audio?')) {
+    if (!confirm('¿Seguro que quieres eliminar este audio?')) {
       return;
     }
 
     if (!session) {
-      setStoriesError('Debes iniciar sesi�n para eliminar audios.');
+      setStoriesError('Debes iniciar sesión para eliminar audios.');
       return;
     }
 
@@ -388,7 +388,7 @@ export default function Home() {
     try {
       if (!session) {
         setStories([]);
-        setStoriesError('Inicia sesi�n para ver tus cuentos.');
+        setStoriesError('Inicia sesión para ver tus cuentos.');
         return;
       }
 
@@ -487,7 +487,7 @@ export default function Home() {
     const password = authPassword;
 
     if (!email || !password) {
-      setAuthError('Completa email y contrase�a.');
+      setAuthError('Completa email y contraseña.');
       return;
     }
 
@@ -502,7 +502,7 @@ export default function Home() {
     } else if (authMode === 'signup' && !response.data.session) {
       setAuthMessage('Registro exitoso. Revisa tu correo para confirmar tu cuenta.');
     } else {
-      setAuthMessage('Sesi�n iniciada.');
+      setAuthMessage('Sesión iniciada.');
     }
     setAuthPending(false);
   };
@@ -529,7 +529,7 @@ export default function Home() {
     setAuthMessage(null);
 
     if (!email) {
-      setAuthError('Escribe tu email para recuperar la contrasena.');
+      setAuthError('Escribe tu email para recuperar la contraseña.');
       return;
     }
 
@@ -541,7 +541,7 @@ export default function Home() {
     if (response.error) {
       setAuthError(translateSupabaseAuthError(response.error.message));
     } else {
-      setAuthMessage('Te enviamos un enlace para restablecer tu contrasena.');
+      setAuthMessage('Te enviamos un enlace para restablecer tu contraseña.');
     }
     setAuthRecoveryPending(false);
   };
@@ -625,7 +625,7 @@ export default function Home() {
           <div className="px-4 py-2 rounded-2xl bg-white/70 backdrop-blur-md border border-white/60 shadow-sm">
             <h1 className="text-2xl md:text-3xl font-bold text-pink-600 handwriting">
               {activeView === 'home'
-                ? 'Crea tu historia �nica'
+                ? 'Crea tu historia única'
                 : activeView === 'audio'
                   ? 'Mis audios'
                   : 'Mis cuentos'}
@@ -655,7 +655,7 @@ export default function Home() {
         {isAuthLoading ? (
           <div className="min-h-[70vh] flex items-center justify-center">
             <div className="rounded-3xl bg-white/70 backdrop-blur-md border border-white/70 shadow-sm px-6 py-4 text-slate-500">
-              Cargando sesi�n...
+              Cargando sesión...
             </div>
           </div>
         ) : !user ? (
@@ -663,10 +663,10 @@ export default function Home() {
             <div className="w-full max-w-xl rounded-3xl bg-white/70 backdrop-blur-md border border-white/70 shadow-xl p-6 md:p-8">
               <div className="mb-6 text-center">
                 <h2 className="text-2xl md:text-3xl font-bold text-pink-600 handwriting">
-                  Bienvenido a tu f�brica de cuentos
+                  Bienvenido a tu fábrica de cuentos
                 </h2>
                 <p className="text-slate-600 mt-2">
-                  Inicia sesi�n o crea una cuenta para comenzar.
+                  Inicia sesión o crea una cuenta para comenzar.
                 </p>
               </div>
               <form className="space-y-4" onSubmit={handleAuthSubmit}>
@@ -680,7 +680,7 @@ export default function Home() {
                         : 'bg-white/80 text-pink-600 border border-pink-200'
                     }`}
                   >
-                    Iniciar sesi�n
+                    Iniciar sesión
                   </button>
                   <button
                     type="button"
@@ -709,7 +709,7 @@ export default function Home() {
                     />
                   </label>
                   <label className="text-sm text-slate-600">
-                    Contrase�a
+                    Contraseña
                     <input
                       type="password"
                       value={authPassword}
@@ -757,7 +757,7 @@ export default function Home() {
                     >
                       {authRecoveryPending
                         ? 'Enviando enlace...'
-                        : '�Has olvidado la contrase�a?'}
+                        : '¿Has olvidado la contraseña?'}
                     </button>
                   </div>
                 )}
@@ -769,7 +769,7 @@ export default function Home() {
             <div className="mb-6 rounded-3xl bg-white/60 backdrop-blur-md border border-white/70 shadow-sm p-5">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm text-slate-500">Sesi�n activa</p>
+                  <p className="text-sm text-slate-500">Sesión activa</p>
                   <p className="text-base font-semibold text-slate-800">{user.email}</p>
                 </div>
                 <button
@@ -777,7 +777,7 @@ export default function Home() {
                   onClick={handleSignOut}
                   className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-white/90 text-pink-600 text-sm font-semibold border border-pink-200 shadow-sm hover:bg-white transition-colors"
                 >
-                  Cerrar sesi�n
+                  Cerrar sesión
                 </button>
               </div>
             </div>
@@ -814,7 +814,7 @@ export default function Home() {
               <p className="text-slate-500">Cargando cuentos...</p>
             ) : stories.length === 0 ? (
               <div className="bg-white border border-pink-100 rounded-2xl p-6 text-slate-600">
-                A�n no has creado ning�n cuento. Crea uno y aparecer� aqu�.
+                Aún no has creado ningún cuento. Crea uno y aparecerá aquí.
               </div>
             ) : (
               <div className="grid gap-4">
@@ -878,7 +878,7 @@ export default function Home() {
                         {isPendingStory
                           ? 'Generando cuento...'
                           : status === 'error'
-                            ? 'Error al generar. Intentalo de nuevo.'
+                            ? 'Error al generar. Inténtalo de nuevo.'
                             : 'Leer cuento'}
                       </div>
                     </div>
@@ -910,7 +910,7 @@ export default function Home() {
                 if (audioStories.length === 0) {
                   return (
                     <div className="bg-white border border-pink-100 rounded-2xl p-6 text-slate-600">
-                      Todavia no hay audios creados. Los nuevos cuentos generan audio automaticamente.
+                      Todavía no hay audios creados. Los nuevos cuentos generan audio automáticamente.
                     </div>
                   );
                 }
@@ -1036,7 +1036,7 @@ export default function Home() {
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl border border-pink-100 p-6">
             <h2 className="text-xl font-bold text-pink-600 handwriting">
-              Nuestra f�brica de cuentos puede tardar entre 3 y 7 minutos en crearlo. �Empezamos?
+              Nuestra fábrica de cuentos puede tardar entre 3 y 7 minutos en crearlo. ¿Empezamos?
             </h2>
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
