@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { StoryField, StoryOption, StorySelection } from '@/lib/storyData';
 
+const preloadedImages = new Set<string>();
+
 interface SelectorModalProps {
   field: StoryField;
   currentSelection: StorySelection;
@@ -38,6 +40,20 @@ export default function SelectorModal({
       }
     }
   }, [currentSelection, field.options]);
+
+  useEffect(() => {
+    if (field.inputType === 'text') {
+      return;
+    }
+
+    field.options.forEach((option) => {
+      if (option.image && !preloadedImages.has(option.image)) {
+        const image = new Image();
+        image.src = option.image;
+        preloadedImages.add(option.image);
+      }
+    });
+  }, [field.inputType, field.options]);
 
   const handleConfirm = () => {
     if (field.inputType === 'text') {
