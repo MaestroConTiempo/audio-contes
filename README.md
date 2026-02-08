@@ -51,6 +51,15 @@ http://localhost:3000/api/health/supabase
 > - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (recomendada) o `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (legacy, mantenida por compatibilidad)
 > - `SUPABASE_SERVICE_ROLE_KEY` (requerida para operaciones de administrador)
 
+## Worker de generacion de cuentos
+
+La app encola trabajos en `story_jobs`. En produccion debes invocar
+`POST /api/story/worker` con `x-worker-secret: $STORY_WORKER_SECRET`
+(o token `Bearer`) desde un cron/webhook periodico.
+
+Los jobs en `processing` se reintentan automaticamente cuando superan
+`STORY_JOB_STALE_MS` (por defecto `300000` ms).
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
@@ -71,3 +80,4 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ## Credits
 
 This project includes Twemoji assets by Twitter, Inc and contributors, licensed under CC-BY 4.0.
+

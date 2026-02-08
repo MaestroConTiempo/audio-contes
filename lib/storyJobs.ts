@@ -10,6 +10,7 @@ type StoryJob = {
   status: string;
   attempts: number;
   last_error: string | null;
+  updated_at?: string | null;
 };
 
 type StoryRow = {
@@ -33,10 +34,21 @@ export type ProcessStoryJobsOptions = {
 };
 
 const nowIso = () => new Date().toISOString();
+const DEFAULT_STALE_PROCESSING_MS = 5 * 60 * 1000;
+const MIN_STALE_PROCESSING_MS = 60 * 1000;
+const MAX_STALE_PROCESSING_MS = 60 * 60 * 1000;
 
 const clampMaxJobs = (value?: number) => {
   if (!value || Number.isNaN(value)) return 5;
   return Math.max(1, Math.min(20, Math.floor(value)));
+};
+
+const getStaleProcessingMs = () => {
+  const raw = process.env.STORY_JOB_STALE_MS;
+  if (!raw) return DEFAULT_STALE_PROCESSING_MS;
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isNaN(parsed)) return DEFAULT_STALE_PROCESSING_MS;
+  return Math.max(MIN_STALE_PROCESSING_MS, Math.min(MAX_STALE_PROCESSING_MS, parsed));
 };
 
 async function claimNextPendingJob(onlyStoryId?: string): Promise<StoryJob | null> {
@@ -44,7 +56,7 @@ async function claimNextPendingJob(onlyStoryId?: string): Promise<StoryJob | nul
 
   let query = supabase
     .from('story_jobs')
-    .select('id,story_id,user_id,status,attempts,last_error')
+    .select('id,story_id,user_id,status,attempts,last_error,updated_at')
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
     .limit(1);
@@ -53,27 +65,55 @@ async function claimNextPendingJob(onlyStoryId?: string): Promise<StoryJob | nul
     query = query.eq('story_id', onlyStoryId);
   }
 
-  const { data: jobs, error: listError } = await query;
-  if (listError) {
-    throw new Error(`No se pudieron listar jobs pendientes: ${listError.message}`);
+  const { data: pendingJobs, error: pendingError } = await query;
+  if (pendingError) {
+    throw new Error(`No se pudieron listar jobs pendientes: ${pendingError.message}`);
   }
 
-  const candidate = jobs?.[0] as StoryJob | undefined;
+  let candidate = pendingJobs?.[0] as StoryJob | undefined;
+
+  if (!candidate) {
+    const staleCutoffIso = new Date(Date.now() - getStaleProcessingMs()).toISOString();
+
+    let staleQuery = supabase
+      .from('story_jobs')
+      .select('id,story_id,user_id,status,attempts,last_error,updated_at')
+      .eq('status', 'processing')
+      .lt('updated_at', staleCutoffIso)
+      .order('updated_at', { ascending: true })
+      .limit(1);
+
+    if (onlyStoryId) {
+      staleQuery = staleQuery.eq('story_id', onlyStoryId);
+    }
+
+    const { data: staleJobs, error: staleError } = await staleQuery;
+    if (staleError) {
+      throw new Error(`No se pudieron listar jobs atascados: ${staleError.message}`);
+    }
+
+    candidate = staleJobs?.[0] as StoryJob | undefined;
+  }
+
   if (!candidate) {
     return null;
   }
+
+  const claimedAt = nowIso();
+  const retryError =
+    candidate.status === 'processing' ? `Reintentando job atascado (${claimedAt})` : null;
 
   const { data: claimed, error: claimError } = await supabase
     .from('story_jobs')
     .update({
       status: 'processing',
       attempts: (candidate.attempts || 0) + 1,
-      updated_at: nowIso(),
-      last_error: null,
+      updated_at: claimedAt,
+      last_error: retryError,
     })
     .eq('id', candidate.id)
-    .eq('status', 'pending')
-    .select('id,story_id,user_id,status,attempts,last_error')
+    .eq('status', candidate.status)
+    .select('id,story_id,user_id,status,attempts,last_error,updated_at')
     .maybeSingle<StoryJob>();
 
   if (claimError) {

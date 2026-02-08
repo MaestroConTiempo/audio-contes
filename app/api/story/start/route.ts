@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { StoryState } from '@/lib/storyData';
@@ -86,9 +86,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Best effort: si el host permite background, esto arranca rapido el worker.
-    void processStoryJobs({ maxJobs: 1, onlyStoryId: story.id }).catch((error) => {
-      console.error('[story/start] Worker auto-trigger fallo:', error);
+    // Ejecuta el worker despues de responder usando el hook oficial de Next.
+    after(async () => {
+      try {
+        const result = await processStoryJobs({ maxJobs: 1, onlyStoryId: story.id });
+        if (result.errors.length > 0) {
+          console.error('[story/start] Worker auto-trigger con errores:', result.errors);
+        }
+      } catch (error) {
+        console.error('[story/start] Worker auto-trigger fallo:', error);
+      }
     });
 
     return NextResponse.json({
