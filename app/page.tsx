@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import StoryCard from '@/components/StoryCard';
 import SelectorModal from '@/components/SelectorModal';
 import BottomNav from '@/components/BottomNav';
@@ -77,6 +78,8 @@ export default function Home() {
   const [storiesError, setStoriesError] = useState<string | null>(null);
   const isFetchingStoriesRef = useRef(false);
   const startRequestControllerRef = useRef<AbortController | null>(null);
+  const storyTextRef = useRef<HTMLDivElement | null>(null);
+  const storyAudioRef = useRef<HTMLAudioElement | null>(null);
   const [activeGenerationStoryId, setActiveGenerationStoryId] = useState<string | null>(null);
   const [showGenerationStartModal, setShowGenerationStartModal] = useState(false);
   const [isCancellingGeneration, setIsCancellingGeneration] = useState(false);
@@ -561,6 +564,50 @@ export default function Home() {
     });
   };
 
+  const getHeroImage = (story?: StoryRecord | null) => {
+    const heroSelection = story?.inputs?.hero;
+    if (heroSelection?.image) {
+      return heroSelection.image;
+    }
+    if (heroSelection?.optionId) {
+      const option = storyFields.hero.options.find(
+        (item) => item.id === heroSelection.optionId
+      );
+      if (option?.image) {
+        return option.image;
+      }
+    }
+    return '/option-icons/misc/Inventado.webp';
+  };
+
+  const getHeroAltText = (story?: StoryRecord | null) => {
+    const heroSelection = story?.inputs?.hero;
+    if (heroSelection?.optionName) {
+      return heroSelection.optionName;
+    }
+    if (heroSelection?.optionId) {
+      const option = storyFields.hero.options.find(
+        (item) => item.id === heroSelection.optionId
+      );
+      if (option?.name) {
+        return option.name;
+      }
+    }
+    return 'Protagonista del cuento';
+  };
+
+  const getStoryReadTime = (value?: string | null) => {
+    if (!value) {
+      return '';
+    }
+    const words = value.trim().split(/\s+/).filter(Boolean).length;
+    if (!words) {
+      return '';
+    }
+    const minutes = Math.max(1, Math.round(words / 150));
+    return `${minutes} min`;
+  };
+
   const renderStoryText = (value?: string | null) => {
     if (!value) {
       return null;
@@ -817,13 +864,16 @@ export default function Home() {
                 A�n no has creado ning�n cuento. Crea uno y aparecer� aqu�.
               </div>
             ) : (
-              <div className="grid gap-4">
+              <div className="grid gap-6">
                 {stories.map((story) => {
                   const storyDate = formatStoryDate(story.created_at);
                   const isDeleting = Boolean(deletingStories[story.id]);
                   const status = (story.status || '').trim();
                   const isPendingStory = PENDING_STORY_STATUSES.has(status);
                   const canOpenStory = Boolean(story.story_text) && !isPendingStory;
+                  const heroImage = getHeroImage(story);
+                  const heroAlt = getHeroAltText(story);
+                  const readTime = getStoryReadTime(story.story_text);
                   const statusLabel =
                     status === 'error'
                       ? 'Error'
@@ -848,19 +898,31 @@ export default function Home() {
                           setActiveStory(story);
                         }
                       }}
-                      className={`text-left bg-white rounded-2xl border border-pink-100 p-5 shadow-sm transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 ${canOpenStory ? 'hover:shadow-md cursor-pointer' : 'cursor-default'}`}
+                      className={`text-left bg-white rounded-3xl border border-pink-100 shadow-sm overflow-hidden transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 ${canOpenStory ? 'hover:shadow-md cursor-pointer' : 'cursor-default opacity-80'}`}
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <h3 className="text-lg font-semibold text-slate-800">
-                            {story.title || 'Cuento infantil'}
-                          </h3>
-                          {storyDate && (
-                            <p className="text-xs text-slate-400 mt-1">{storyDate}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-slate-400 uppercase tracking-wide">{statusLabel}</span>
+                      <div className="relative">
+                        <Image
+                          src={heroImage}
+                          alt={heroAlt}
+                          width={720}
+                          height={420}
+                          className="h-44 w-full object-cover"
+                        />
+                        <span className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-600 shadow">
+                          {statusLabel}
+                        </span>
+                      </div>
+                      <div className="p-5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <h3 className="text-lg font-semibold text-slate-800">
+                              {story.title || 'Cuento infantil'}
+                            </h3>
+                            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                              {storyDate && <span>{storyDate}</span>}
+                              {readTime && <span>{readTime}</span>}
+                            </div>
+                          </div>
                           <button
                             type="button"
                             onClick={(event) => {
@@ -873,13 +935,13 @@ export default function Home() {
                             {isDeleting ? 'Eliminando...' : 'Eliminar'}
                           </button>
                         </div>
-                      </div>
-                      <div className="mt-3 text-pink-600 text-sm font-semibold">
-                        {isPendingStory
-                          ? 'Generando cuento...'
-                          : status === 'error'
-                            ? 'Error al generar. Intentalo de nuevo.'
-                            : 'Leer cuento'}
+                        <div className="mt-4 text-pink-600 text-sm font-semibold">
+                          {isPendingStory
+                            ? 'Generando cuento...'
+                            : status === 'error'
+                              ? 'Error al generar. Intentalo de nuevo.'
+                              : 'Leer cuento'}
+                        </div>
                       </div>
                     </div>
                   );
@@ -1094,17 +1156,71 @@ export default function Home() {
                   <p>{error}</p>
                 </div>
               ) : (
-                <div className="prose prose-lg max-w-none">
-                  <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
+                <div className="space-y-6">
+                  <div className="rounded-3xl border border-slate-100 bg-slate-50 overflow-hidden">
+                    <Image
+                      src={getHeroImage(activeStory)}
+                      alt={getHeroAltText(activeStory)}
+                      width={720}
+                      height={420}
+                      className="h-56 w-full object-cover"
+                    />
+                    <div className="p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-xl font-semibold text-slate-800">
+                            {activeStory?.title || 'Cuento infantil'}
+                          </h3>
+                          <p className="mt-1 text-xs text-slate-400">
+                            {formatStoryDate(activeStory?.created_at)}
+                          </p>
+                        </div>
+                        {getStoryReadTime(activeStory?.story_text) && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500 shadow">
+                            {getStoryReadTime(activeStory?.story_text)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            storyTextRef.current?.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          className="inline-flex items-center justify-center rounded-full bg-white text-slate-600 text-sm font-semibold border border-slate-200 px-5 py-2 shadow-sm hover:bg-slate-100 transition-colors"
+                        >
+                          Leer
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!activeStory?.audio?.audio_url}
+                          onClick={() => {
+                            if (storyAudioRef.current) {
+                              storyAudioRef.current.scrollIntoView({ behavior: 'smooth' });
+                              void storyAudioRef.current.play().catch(() => undefined);
+                            }
+                          }}
+                          className="inline-flex items-center justify-center rounded-full bg-pink-500 text-white text-sm font-semibold px-5 py-2 shadow-sm hover:bg-pink-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Escuchar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    ref={storyTextRef}
+                    className="prose prose-lg max-w-none whitespace-pre-wrap text-gray-800 leading-relaxed"
+                  >
                     {renderStoryText(activeStory?.story_text)}
                   </div>
-                  <div className="mt-6">
+                  <div>
                     {activeStory?.audio?.audio_url ? (
                       <div className="space-y-3">
                         <audio
                           controls
                           src={activeStory.audio.audio_url || undefined}
                           className="w-full"
+                          ref={storyAudioRef}
                         />
                         <div className="flex flex-wrap items-center gap-2">
                           <button
@@ -1162,8 +1278,6 @@ export default function Home() {
     </div>
   );
 }
-
-
 
 
 
