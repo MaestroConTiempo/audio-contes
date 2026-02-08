@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import StoryCard from '@/components/StoryCard';
 import SelectorModal from '@/components/SelectorModal';
 import BottomNav from '@/components/BottomNav';
@@ -78,6 +79,8 @@ export default function Home() {
   const isFetchingStoriesRef = useRef(false);
   const startRequestControllerRef = useRef<AbortController | null>(null);
   const [activeGenerationStoryId, setActiveGenerationStoryId] = useState<string | null>(null);
+  const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
+  const [openAudioStoryId, setOpenAudioStoryId] = useState<string | null>(null);
   const [showGenerationStartModal, setShowGenerationStartModal] = useState(false);
   const [isCancellingGeneration, setIsCancellingGeneration] = useState(false);
   const [deletingStories, setDeletingStories] = useState<Record<string, boolean>>({});
@@ -561,6 +564,12 @@ export default function Home() {
     });
   };
 
+  const getHeroImage = (story: StoryRecord) =>
+    story.inputs?.hero?.image || '/option-icons/misc/Inventado.webp';
+
+  const getHeroLabel = (story: StoryRecord) =>
+    story.inputs?.hero?.customName || story.inputs?.hero?.optionName || 'Protagonista';
+
   const renderStoryText = (value?: string | null) => {
     if (!value) {
       return null;
@@ -617,6 +626,23 @@ export default function Home() {
     hasAnyPendingGeneration;
   const loaderPhase: 'story' | 'audio' =
     hasPendingStoryGeneration || generationState === 'generating_story' ? 'story' : 'audio';
+  const selectedStory = selectedStoryId
+    ? stories.find((story) => story.id === selectedStoryId)
+    : stories[0];
+
+  useEffect(() => {
+    if (stories.length === 0) {
+      setSelectedStoryId(null);
+      return;
+    }
+    if (!selectedStoryId || !stories.some((story) => story.id === selectedStoryId)) {
+      setSelectedStoryId(stories[0].id);
+    }
+  }, [stories, selectedStoryId]);
+
+  useEffect(() => {
+    setOpenAudioStoryId(null);
+  }, [selectedStoryId]);
 
   return (
     <div className="min-h-screen bg-[url('/Interfaz.webp')] bg-cover bg-center pb-32">
@@ -803,7 +829,7 @@ export default function Home() {
             </div>
           </div>
             ) : activeView === 'stories' ? (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {storiesError && (
               <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4">
                 {storiesError}
@@ -817,13 +843,13 @@ export default function Home() {
                 Aún no has creado ningún cuento. Crea uno y aparecerá aquí.
               </div>
             ) : (
-              <div className="grid gap-4">
-                {stories.map((story) => {
-                  const storyDate = formatStoryDate(story.created_at);
-                  const isDeleting = Boolean(deletingStories[story.id]);
-                  const status = (story.status || '').trim();
+              <>
+                {selectedStory && (() => {
+                  const storyDate = formatStoryDate(selectedStory.created_at);
+                  const status = (selectedStory.status || '').trim();
                   const isPendingStory = PENDING_STORY_STATUSES.has(status);
-                  const canOpenStory = Boolean(story.story_text) && !isPendingStory;
+                  const canOpenStory = Boolean(selectedStory.story_text) && !isPendingStory;
+                  const isLatestStory = stories[0]?.id === selectedStory.id;
                   const statusLabel =
                     status === 'error'
                       ? 'Error'
@@ -833,58 +859,166 @@ export default function Home() {
                           ? 'Generando'
                           : status || 'Generado';
                   return (
-                    <div
-                      key={story.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        if (canOpenStory) {
-                          setActiveStory(story);
-                        }
-                      }}
-                      onKeyDown={(event) => {
-                        if ((event.key === 'Enter' || event.key === ' ') && canOpenStory) {
-                          event.preventDefault();
-                          setActiveStory(story);
-                        }
-                      }}
-                      className={`text-left bg-white rounded-2xl border border-pink-100 p-5 shadow-sm transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 ${canOpenStory ? 'hover:shadow-md cursor-pointer' : 'cursor-default'}`}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <h3 className="text-lg font-semibold text-slate-800">
-                            {story.title || 'Cuento infantil'}
-                          </h3>
-                          {storyDate && (
-                            <p className="text-xs text-slate-400 mt-1">{storyDate}</p>
-                          )}
+                    <section className="rounded-3xl bg-white/70 backdrop-blur-md border border-white/70 shadow-sm p-5">
+                      <p className="text-sm text-slate-500">
+                        {isLatestStory ? 'Tu último cuento creado ✨' : 'Tu cuento seleccionado ✨'}
+                      </p>
+                      <div className="mt-4 overflow-hidden rounded-3xl border border-pink-100 bg-white shadow-sm">
+                        <div className="relative h-48 sm:h-56 md:h-64 w-full">
+                          <Image
+                            src={getHeroImage(selectedStory)}
+                            alt={`Ilustración de ${getHeroLabel(selectedStory)}`}
+                            fill
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 75vw, 640px"
+                            className="object-cover"
+                            priority
+                          />
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-slate-400 uppercase tracking-wide">{statusLabel}</span>
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void handleDeleteStory(story.id);
-                            }}
-                            disabled={isDeleting}
-                            className="text-xs font-semibold text-red-500 hover:text-red-600 disabled:opacity-60 disabled:cursor-not-allowed"
-                          >
-                            {isDeleting ? 'Eliminando...' : 'Eliminar'}
-                          </button>
+                        <div className="p-5">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <h3 className="text-xl font-semibold text-slate-800">
+                                {selectedStory.title || 'Cuento infantil'}
+                              </h3>
+                              {storyDate && (
+                                <p className="text-sm text-slate-400 mt-1">{storyDate}</p>
+                              )}
+                            </div>
+                            <span className="text-xs text-slate-400 uppercase tracking-wide">
+                              {statusLabel}
+                            </span>
+                          </div>
+                          <div className="mt-4 flex flex-wrap items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (canOpenStory) {
+                                  setActiveStory(selectedStory);
+                                }
+                              }}
+                              disabled={!canOpenStory}
+                              className="inline-flex items-center justify-center px-5 py-2 rounded-full bg-white/80 text-pink-600 text-sm font-semibold border border-pink-200 shadow-sm hover:bg-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              👀 Leer
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (selectedStory.audio?.audio_url) {
+                                  setOpenAudioStoryId(selectedStory.id);
+                                }
+                              }}
+                              disabled={!selectedStory.audio?.audio_url}
+                              className="inline-flex items-center justify-center px-5 py-2 rounded-full bg-pink-500 text-white text-sm font-semibold shadow-sm hover:bg-pink-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              🔊 Escuchar
+                            </button>
+                          </div>
+                          {openAudioStoryId === selectedStory.id &&
+                          selectedStory.audio?.audio_url ? (
+                            <div className="mt-4">
+                              <audio
+                                controls
+                                autoPlay
+                                src={selectedStory.audio.audio_url || undefined}
+                                className="w-full"
+                              />
+                            </div>
+                          ) : selectedStory.audio?.status === 'pending' ? (
+                            <p className="mt-3 text-sm text-slate-500">Generando audio...</p>
+                          ) : selectedStory.audio?.status === 'error' ? (
+                            <p className="mt-3 text-sm text-red-500">
+                              Error al generar el audio.
+                            </p>
+                          ) : null}
                         </div>
                       </div>
-                      <div className="mt-3 text-pink-600 text-sm font-semibold">
-                        {isPendingStory
-                          ? 'Generando cuento...'
-                          : status === 'error'
-                            ? 'Error al generar. Inténtalo de nuevo.'
-                            : 'Leer cuento'}
-                      </div>
-                    </div>
+                    </section>
                   );
-                })}
-              </div>
+                })()}
+
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold text-slate-800">
+                      Cuentos creados por ti ✨
+                    </h2>
+                  </div>
+                  <div className="grid gap-4">
+                    {stories.map((story) => {
+                      const storyDate = formatStoryDate(story.created_at);
+                      const isDeleting = Boolean(deletingStories[story.id]);
+                      const status = (story.status || '').trim();
+                      const isPendingStory = PENDING_STORY_STATUSES.has(status);
+                      const statusLabel =
+                        status === 'error'
+                          ? 'Error'
+                          : status === 'ready'
+                            ? 'Listo'
+                            : isPendingStory
+                              ? 'Generando'
+                              : status || 'Generado';
+                      return (
+                        <div
+                          key={story.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setSelectedStoryId(story.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              setSelectedStoryId(story.id);
+                            }
+                          }}
+                          className={`text-left rounded-2xl border border-pink-100 bg-white p-4 shadow-sm transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 ${selectedStoryId === story.id ? 'shadow-md ring-2 ring-pink-200' : 'hover:shadow-md cursor-pointer'}`}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                            <div className="relative h-28 w-full sm:w-28 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
+                              <Image
+                                src={getHeroImage(story)}
+                                alt={`Ilustración de ${getHeroLabel(story)}`}
+                                fill
+                                sizes="112px"
+                                className="object-cover"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <h3 className="text-lg font-semibold text-slate-800">
+                                    {story.title || 'Cuento infantil'}
+                                  </h3>
+                                  {storyDate && (
+                                    <p className="text-xs text-slate-400 mt-1">{storyDate}</p>
+                                  )}
+                                </div>
+                                <span className="text-xs text-slate-400 uppercase tracking-wide">
+                                  {statusLabel}
+                                </span>
+                              </div>
+                              <p className="mt-2 text-sm text-slate-500">
+                                Protagonista: {getHeroLabel(story)}
+                              </p>
+                            </div>
+                            <div className="flex items-center justify-end gap-3">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handleDeleteStory(story.id);
+                                }}
+                                disabled={isDeleting}
+                                className="text-xs font-semibold text-red-500 hover:text-red-600 disabled:opacity-60 disabled:cursor-not-allowed"
+                              >
+                                {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              </>
             )}
           </div>
             ) : (
@@ -1164,13 +1298,6 @@ export default function Home() {
     </div>
   );
 }
-
-
-
-
-
-
-
 
 
 
