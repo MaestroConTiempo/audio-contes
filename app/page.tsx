@@ -1113,7 +1113,7 @@ export default function Home() {
       {/* Modal para mostrar el cuento generado */}
       {(error || activeStory) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[88vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[88vh] overflow-hidden flex flex-col">
             <div className="sticky top-0 bg-white border-b border-pink-100 px-6 py-4 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-pink-600">
                 {error ? 'Error' : activeStory?.title || 'Tu cuento generado'}
@@ -1128,7 +1128,7 @@ export default function Home() {
                 Cerrar
               </button>
             </div>
-            <div className="p-6">
+            <div className="p-6 overflow-y-auto">
               {error ? (
                 <div className="text-red-600">
                   <p className="font-semibold mb-2">No se pudo generar el cuento:</p>
@@ -1185,9 +1185,9 @@ export default function Home() {
                     </div>
                   </div>
                   {activeStoryPanel === 'read' ? (
-                    <div className="rounded-2xl border border-pink-100 bg-pink-50/30 p-4">
+                    <div className="rounded-2xl border border-pink-100 bg-pink-50/30 p-4 max-h-[50vh] flex flex-col">
                       <p className="text-xs font-semibold uppercase tracking-wide text-pink-600 mb-2">Lectura</p>
-                      <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
+                      <div className="whitespace-pre-wrap text-gray-800 leading-relaxed overflow-y-auto pr-1">
                         {renderStoryText(activeStory.story_text)}
                       </div>
                     </div>
