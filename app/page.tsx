@@ -506,7 +506,9 @@ export default function Home() {
     if (response.error) {
       setAuthError(translateSupabaseAuthError(response.error.message));
     } else if (authMode === 'signup' && !response.data.session) {
-      setAuthMessage('Registro exitoso. Revisa tu correo para confirmar tu cuenta.');
+      setAuthMessage(
+        'Te has registrado con éxito. Revisa tu correo para confirmar tu cuenta. Si no lo ves, revisa también correo no deseado o spam.'
+      );
     } else {
       setAuthMessage('Sesión iniciada.');
     }
