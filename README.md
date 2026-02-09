@@ -58,7 +58,11 @@ La app encola trabajos en `story_jobs`. En produccion debes invocar
 (o token `Bearer`) desde un cron/webhook periodico.
 
 Los jobs en `processing` se reintentan automaticamente cuando superan
-`STORY_JOB_STALE_MS` (por defecto `300000` ms).
+`STORY_JOB_STALE_MS` (por defecto `1800000` ms).
+
+Recomendacion: configura `STORY_JOB_STALE_MS` por encima de
+`GENAIPRO_TIMEOUT_MS` para evitar reintentos prematuros cuando
+GenAIPro tarda varios minutos en responder.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 

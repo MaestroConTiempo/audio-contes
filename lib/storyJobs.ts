@@ -18,6 +18,8 @@ type StoryRow = {
   user_id: string;
   inputs: StoryState | null;
   status: string | null;
+  title?: string | null;
+  story_text?: string | null;
 };
 
 export type ProcessStoryJobsResult = {
@@ -34,22 +36,106 @@ export type ProcessStoryJobsOptions = {
 };
 
 const nowIso = () => new Date().toISOString();
-const DEFAULT_STALE_PROCESSING_MS = 5 * 60 * 1000;
+const DEFAULT_STALE_PROCESSING_MS = 30 * 60 * 1000;
 const MIN_STALE_PROCESSING_MS = 60 * 1000;
 const MAX_STALE_PROCESSING_MS = 60 * 60 * 1000;
+const DEFAULT_AUDIO_TIMEOUT_MS = 15 * 60 * 1000;
+const STALE_AUDIO_BUFFER_MS = 2 * 60 * 1000;
+const JOB_HEARTBEAT_MS = 30 * 1000;
 
 const clampMaxJobs = (value?: number) => {
   if (!value || Number.isNaN(value)) return 5;
   return Math.max(1, Math.min(20, Math.floor(value)));
 };
 
-const getStaleProcessingMs = () => {
-  const raw = process.env.STORY_JOB_STALE_MS;
-  if (!raw) return DEFAULT_STALE_PROCESSING_MS;
-  const parsed = Number.parseInt(raw, 10);
-  if (Number.isNaN(parsed)) return DEFAULT_STALE_PROCESSING_MS;
-  return Math.max(MIN_STALE_PROCESSING_MS, Math.min(MAX_STALE_PROCESSING_MS, parsed));
+const parseMsEnv = (value: string | undefined, fallback: number) => {
+  if (!value) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed)) return fallback;
+  return parsed;
 };
+
+const getAudioTimeoutMs = () => {
+  const configuredTimeout = parseMsEnv(
+    process.env.GENAIPRO_TIMEOUT_MS ?? process.env.ELEVENLABS_TIMEOUT_MS,
+    DEFAULT_AUDIO_TIMEOUT_MS
+  );
+  return Math.max(60 * 1000, configuredTimeout);
+};
+
+const getStaleProcessingMs = () => {
+  const minimumForAudio = getAudioTimeoutMs() + STALE_AUDIO_BUFFER_MS;
+  const raw = process.env.STORY_JOB_STALE_MS;
+
+  if (!raw) {
+    return Math.max(DEFAULT_STALE_PROCESSING_MS, minimumForAudio);
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isNaN(parsed)) {
+    return Math.max(DEFAULT_STALE_PROCESSING_MS, minimumForAudio);
+  }
+
+  const clamped = Math.max(MIN_STALE_PROCESSING_MS, Math.min(MAX_STALE_PROCESSING_MS, parsed));
+  return Math.max(clamped, minimumForAudio);
+};
+
+function startJobHeartbeat(jobId: string) {
+  const supabase = createSupabaseAdminClient();
+  let isStopped = false;
+  let isUpdating = false;
+
+  const interval = setInterval(() => {
+    if (isStopped || isUpdating) return;
+    isUpdating = true;
+
+    void (async () => {
+      try {
+        const { error } = await supabase
+          .from('story_jobs')
+          .update({ updated_at: nowIso() })
+          .eq('id', jobId)
+          .eq('status', 'processing');
+
+        if (error) {
+          console.error(`[worker] Heartbeat error job ${jobId}: ${error.message}`);
+        }
+      } catch (error) {
+        console.error(`[worker] Heartbeat exception job ${jobId}:`, error);
+      } finally {
+        isUpdating = false;
+      }
+    })();
+  }, JOB_HEARTBEAT_MS);
+
+  if (typeof interval.unref === 'function') {
+    interval.unref();
+  }
+
+  return () => {
+    isStopped = true;
+    clearInterval(interval);
+  };
+}
+
+async function hasReadyAudio(storyId: string): Promise<boolean> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from('audios')
+    .select('id')
+    .eq('story_id', storyId)
+    .eq('status', 'ready')
+    .not('audio_url', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`No se pudo comprobar audio ready para story ${storyId}: ${error.message}`);
+  }
+
+  return Boolean(data?.id);
+}
 
 async function claimNextPendingJob(onlyStoryId?: string): Promise<StoryJob | null> {
   const supabase = createSupabaseAdminClient();
@@ -155,6 +241,22 @@ async function markJobFailed(jobId: string, lastError: string) {
   }
 }
 
+async function markJobPending(jobId: string, lastError?: string | null) {
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from('story_jobs')
+    .update({
+      status: 'pending',
+      updated_at: nowIso(),
+      last_error: lastError ?? null,
+    })
+    .eq('id', jobId);
+
+  if (error) {
+    throw new Error(`No se pudo reencolar job (${jobId}): ${error.message}`);
+  }
+}
+
 async function updateStoryStatus(
   storyId: string,
   values: {
@@ -173,74 +275,108 @@ async function updateStoryStatus(
 }
 
 async function processClaimedJob(job: StoryJob): Promise<'completed' | 'failed' | 'skipped'> {
+  const stopHeartbeat = startJobHeartbeat(job.id);
   const supabase = createSupabaseAdminClient();
 
-  const { data: story, error: storyError } = await supabase
-    .from('stories')
-    .select('id,user_id,inputs,status')
-    .eq('id', job.story_id)
-    .single<StoryRow>();
-
-  if (storyError || !story) {
-    await markJobFailed(job.id, `Story no encontrada: ${storyError?.message || 'sin datos'}`);
-    return 'failed';
-  }
-
-  if (!story.inputs || typeof story.inputs !== 'object') {
-    await updateStoryStatus(story.id, {
-      status: 'error',
-      generation_error: 'inputs inválidos o vacíos',
-    });
-    await markJobFailed(job.id, 'inputs inválidos o vacíos');
-    return 'failed';
-  }
-
-  if (story.status && !['pending', 'generating_story', 'generating_audio'].includes(story.status)) {
-    await markJobCompleted(job.id);
-    return 'skipped';
-  }
-
   try {
-    await updateStoryStatus(story.id, {
-      status: 'generating_story',
-      generation_error: null,
-    });
+    const { data: story, error: storyError } = await supabase
+      .from('stories')
+      .select('id,user_id,inputs,status,title,story_text')
+      .eq('id', job.story_id)
+      .single<StoryRow>();
 
-    const generated = await generateStoryWithOpenAI(story.inputs);
+    if (storyError || !story) {
+      await markJobFailed(job.id, `Story no encontrada: ${storyError?.message || 'sin datos'}`);
+      return 'failed';
+    }
 
-    await updateStoryStatus(story.id, {
-      status: 'generated',
-      title: generated.title,
-      story_text: generated.storyText,
-      generated_at: nowIso(),
-      generation_error: null,
-    });
+    if (!story.inputs || typeof story.inputs !== 'object') {
+      await updateStoryStatus(story.id, {
+        status: 'error',
+        generation_error: 'inputs invalidos o vacios',
+      });
+      await markJobFailed(job.id, 'inputs invalidos o vacios');
+      return 'failed';
+    }
+
+    if (
+      story.status &&
+      !['pending', 'generating_story', 'generating_audio', 'generated'].includes(story.status)
+    ) {
+      await markJobCompleted(job.id);
+      return 'skipped';
+    }
+
+    const existingStoryText = story.story_text?.trim() ?? '';
+
+    if (!existingStoryText) {
+      await updateStoryStatus(story.id, {
+        status: 'generating_story',
+        generation_error: null,
+      });
+
+      const generated = await generateStoryWithOpenAI(story.inputs);
+
+      await updateStoryStatus(story.id, {
+        status: 'generated',
+        title: generated.title,
+        story_text: generated.storyText,
+        generated_at: nowIso(),
+        generation_error: null,
+      });
+    } else if (story.status === 'pending' || story.status === 'generating_story') {
+      await updateStoryStatus(story.id, {
+        status: 'generated',
+        generation_error: null,
+      });
+    }
 
     const narratorVoiceId = story.inputs.narrator?.optionId?.trim() || null;
     if (narratorVoiceId) {
-      await updateStoryStatus(story.id, {
-        status: 'generating_audio',
-      });
+      const alreadyReady = await hasReadyAudio(story.id);
 
-      try {
-        await generateAudioForStory({
-          supabase,
-          storyId: story.id,
-          userId: story.user_id,
-          voiceId: narratorVoiceId,
-        });
+      if (alreadyReady) {
         await updateStoryStatus(story.id, {
           status: 'ready',
+          generation_error: null,
         });
-      } catch (audioError) {
-        if (audioError instanceof AudioGenerationError) {
-          console.error(`[worker] Audio error story ${story.id}:`, audioError.message);
-        } else {
-          console.error(`[worker] Audio error story ${story.id}:`, audioError);
-        }
+      } else {
         await updateStoryStatus(story.id, {
-          status: 'generated',
+          status: 'generating_audio',
+          generation_error: null,
         });
+
+        try {
+          const audioResult = await generateAudioForStory({
+            supabase,
+            storyId: story.id,
+            userId: story.user_id,
+            voiceId: narratorVoiceId,
+          });
+
+          if (audioResult.status === 'ready') {
+            await updateStoryStatus(story.id, {
+              status: 'ready',
+              generation_error: null,
+            });
+          } else {
+            await updateStoryStatus(story.id, {
+              status: 'generating_audio',
+              generation_error: null,
+            });
+            await markJobPending(job.id, 'Esperando audio de GenAIPro');
+            return 'skipped';
+          }
+        } catch (audioError) {
+          if (audioError instanceof AudioGenerationError) {
+            console.error(`[worker] Audio error story ${story.id}:`, audioError.message);
+          } else {
+            console.error(`[worker] Audio error story ${story.id}:`, audioError);
+          }
+          await updateStoryStatus(story.id, {
+            status: 'generated',
+          });
+        }
       }
     }
 
@@ -248,12 +384,23 @@ async function processClaimedJob(job: StoryJob): Promise<'completed' | 'failed' 
     return 'completed';
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-    await updateStoryStatus(story.id, {
-      status: 'error',
-      generation_error: errorMessage.slice(0, 1000),
-    });
-    await markJobFailed(job.id, errorMessage.slice(0, 1000));
+    try {
+      await updateStoryStatus(job.story_id, {
+        status: 'error',
+        generation_error: errorMessage.slice(0, 1000),
+      });
+    } catch (updateError) {
+      console.error(`[worker] No se pudo actualizar story ${job.story_id} a error:`, updateError);
+    }
+
+    try {
+      await markJobFailed(job.id, errorMessage.slice(0, 1000));
+    } catch (jobError) {
+      console.error(`[worker] No se pudo marcar job ${job.id} como error:`, jobError);
+    }
     return 'failed';
+  } finally {
+    stopHeartbeat();
   }
 }
 

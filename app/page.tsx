@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import StoryCard from '@/components/StoryCard';
 import SelectorModal from '@/components/SelectorModal';
 import BottomNav from '@/components/BottomNav';
@@ -29,6 +29,7 @@ interface StoryRecord {
 }
 
 const PENDING_STORY_STATUSES = new Set(['pending', 'generating_story', 'generating_audio']);
+const PROGRESS_PING_INTERVAL_MS = 25000;
 
 export default function Home() {
   const {
@@ -77,6 +78,7 @@ export default function Home() {
   const [isLoadingStories, setIsLoadingStories] = useState(false);
   const [storiesError, setStoriesError] = useState<string | null>(null);
   const isFetchingStoriesRef = useRef(false);
+  const isProgressPingInFlightRef = useRef(false);
   const startRequestControllerRef = useRef<AbortController | null>(null);
   const [activeGenerationStoryId, setActiveGenerationStoryId] = useState<string | null>(null);
   const [showGenerationStartModal, setShowGenerationStartModal] = useState(false);
@@ -420,6 +422,35 @@ export default function Home() {
     }
   };
 
+  const triggerStoryProgress = useCallback(async () => {
+    if (!session?.access_token || isProgressPingInFlightRef.current) {
+      return;
+    }
+
+    isProgressPingInFlightRef.current = true;
+
+    try {
+      const response = await fetch('/api/story/progress', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        const errorMessage =
+          (data && typeof data.error === 'string' && data.error) ||
+          'Error al activar el progreso de generacion';
+        throw new Error(errorMessage);
+      }
+    } catch (err) {
+      console.error('Error activando /api/story/progress:', err);
+    } finally {
+      isProgressPingInFlightRef.current = false;
+    }
+  }, [session?.access_token]);
+
   const hasPendingStoryGeneration = stories.some((story) =>
     PENDING_STORY_STATUSES.has((story.status || '').trim())
   );
@@ -470,6 +501,20 @@ export default function Home() {
 
     return () => window.clearInterval(interval);
   }, [session?.access_token, hasAnyPendingGeneration]);
+
+  useEffect(() => {
+    if (!session || !hasAnyPendingGeneration) {
+      return;
+    }
+
+    void triggerStoryProgress();
+
+    const interval = window.setInterval(() => {
+      void triggerStoryProgress();
+    }, PROGRESS_PING_INTERVAL_MS);
+
+    return () => window.clearInterval(interval);
+  }, [session, session?.access_token, hasAnyPendingGeneration, triggerStoryProgress]);
 
   useEffect(() => {
     if (!session) {

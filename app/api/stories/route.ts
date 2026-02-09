@@ -9,6 +9,30 @@ type AudioRecord = {
   created_at?: string | null;
 };
 
+const getAudioPriority = (audio: AudioRecord) => {
+  if (audio.status === 'ready' && audio.audio_url) return 0;
+  if (audio.status === 'pending') return 1;
+  if (audio.status === 'error') return 2;
+  return 3;
+};
+
+const getTimestamp = (value?: string | null) => {
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const shouldReplaceAudio = (current: AudioRecord, candidate: AudioRecord) => {
+  const currentPriority = getAudioPriority(current);
+  const candidatePriority = getAudioPriority(candidate);
+
+  if (candidatePriority !== currentPriority) {
+    return candidatePriority < currentPriority;
+  }
+
+  return getTimestamp(candidate.created_at) > getTimestamp(current.created_at);
+};
+
 const getAccessToken = (request: NextRequest) => {
   const authHeader =
     request.headers.get('authorization') || request.headers.get('Authorization');
@@ -70,7 +94,8 @@ export async function GET(request: NextRequest) {
 
     const audioByStory = new Map<string, AudioRecord>();
     for (const audio of audioData ?? []) {
-      if (!audioByStory.has(audio.story_id)) {
+      const existing = audioByStory.get(audio.story_id);
+      if (!existing || shouldReplaceAudio(existing, audio)) {
         audioByStory.set(audio.story_id, audio);
       }
     }
