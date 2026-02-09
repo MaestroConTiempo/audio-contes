@@ -491,6 +491,7 @@ export default function Home() {
 
     const email = authEmail.trim();
     const password = authPassword;
+    const emailRedirectTo = typeof window !== 'undefined' ? `${window.location.origin}/` : undefined;
 
     if (!email || !password) {
       setAuthError('Completa email y contraseña.');
@@ -500,7 +501,7 @@ export default function Home() {
     setAuthPending(true);
     const response =
       authMode === 'signup'
-        ? await signUp({ email, password })
+        ? await signUp({ email, password, emailRedirectTo })
         : await signInWithPassword({ email, password });
 
     if (response.error) {
@@ -861,7 +862,6 @@ export default function Home() {
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2.5">
                 {stories.map((story) => {
-                  const isDeleting = Boolean(deletingStories[story.id]);
                   const status = (story.status || '').trim();
                   const isPendingStory = PENDING_STORY_STATUSES.has(status);
                   const canOpenStory = Boolean(story.story_text) && !isPendingStory;
@@ -911,16 +911,6 @@ export default function Home() {
                             {isPendingStory ? 'Generando...' : storyDuration}
                           </p>
                         </div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void handleDeleteStory(story.id);
-                        }}
-                        disabled={isDeleting}
-                        className="absolute right-2 top-2 inline-flex items-center justify-center rounded-md bg-red-500/90 px-2 py-1 text-[10px] font-semibold text-white shadow-sm hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        {isDeleting ? '...' : 'X'}
                       </button>
                     </div>
                   );

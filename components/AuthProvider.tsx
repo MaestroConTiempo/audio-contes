@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
@@ -8,7 +8,7 @@ type AuthContextValue = {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
-  signUp: (params: { email: string; password: string }) => ReturnType<
+  signUp: (params: { email: string; password: string; emailRedirectTo?: string }) => ReturnType<
     ReturnType<typeof createSupabaseBrowserClient>['auth']['signUp']
   >;
   signInWithPassword: (params: { email: string; password: string }) => ReturnType<
@@ -26,11 +26,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(null);
-  if (!supabaseRef.current) {
-    supabaseRef.current = createSupabaseBrowserClient();
-  }
-  const supabase = supabaseRef.current;
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -65,8 +61,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       session,
       isLoading,
-      signUp: (params: { email: string; password: string }) =>
-        supabase.auth.signUp(params),
+      signUp: (params: { email: string; password: string; emailRedirectTo?: string }) =>
+        supabase.auth.signUp({
+          email: params.email,
+          password: params.password,
+          options: params.emailRedirectTo
+            ? { emailRedirectTo: params.emailRedirectTo }
+            : undefined,
+        }),
       signInWithPassword: (params: { email: string; password: string }) =>
         supabase.auth.signInWithPassword(params),
       resetPasswordForEmail: (email: string, redirectTo?: string) =>
