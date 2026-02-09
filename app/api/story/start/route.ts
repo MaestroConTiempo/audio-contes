@@ -5,6 +5,21 @@ import { StoryState } from '@/lib/storyData';
 import { getStoryTitle } from '@/lib/storyGeneration';
 import { processStoryJobs } from '@/lib/storyJobs';
 
+const DAILY_STORY_LIMIT_MESSAGE =
+  'La magia de hoy ya se ha usado, ma\u00f1ana volver\u00e1 a estar lista para crear una nueva historia';
+
+const getUtcDayBounds = () => {
+  const now = new Date();
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+
+  return {
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+  };
+};
+
 const getAccessToken = (request: NextRequest) => {
   const authHeader =
     request.headers.get('authorization') || request.headers.get('Authorization');
@@ -37,6 +52,34 @@ export async function POST(request: NextRequest) {
 
     if (userError || !userData?.user) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const { startIso, endIso } = getUtcDayBounds();
+    const { data: existingStoryToday, error: existingStoryError } = await supabase
+      .from('stories')
+      .select('id')
+      .eq('user_id', userData.user.id)
+      .gte('created_at', startIso)
+      .lt('created_at', endIso)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingStoryError) {
+      return NextResponse.json(
+        { error: `No se pudo validar el l\u00edmite diario: ${existingStoryError.message}` },
+        { status: 500 }
+      );
+    }
+
+    if (existingStoryToday) {
+      return NextResponse.json(
+        {
+          error: DAILY_STORY_LIMIT_MESSAGE,
+          code: 'daily_story_limit_reached',
+        },
+        { status: 429 }
+      );
     }
 
     const title = getStoryTitle(storyState);
