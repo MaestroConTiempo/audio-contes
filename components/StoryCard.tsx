@@ -62,9 +62,9 @@ export default function StoryCard({
               {cardIconIsImage ? (
                 <Image
                   src={cardIcon as string}
-                  width={80}
-                  height={80}
-                  sizes="(max-width: 639px) 64px, 80px"
+                  width={160}
+                  height={160}
+                  sizes="(max-width: 639px) 128px, 160px"
                   alt={title}
                   className="w-full h-full object-contain p-2 rounded-full"
                 />
