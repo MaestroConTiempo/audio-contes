@@ -22,7 +22,7 @@ export const storyFields: Record<string, StoryField> = {
     title: 'Protagonista*',
     required: true,
     needsName: false,
-    cardIcon: '🦸',
+    cardIcon: '/option-icons/Protagonista.webp',
     options: [
       {
         id: 'luna-inventora',
@@ -136,7 +136,7 @@ export const storyFields: Record<string, StoryField> = {
     title: 'El personaje secundario',
     required: false,
     needsName: false,
-    cardIcon: '🧩',
+    cardIcon: '/option-icons/Secundario.webp',
     options: [
       {
         id: 'roco-robot',
@@ -250,7 +250,7 @@ export const storyFields: Record<string, StoryField> = {
     title: 'El objeto',
     required: false,
     needsName: false,
-    cardIcon: '🧰',
+    cardIcon: '/option-icons/Objeto.webp',
     options: [
       {
         id: 'brujula-deseos',
@@ -364,7 +364,7 @@ export const storyFields: Record<string, StoryField> = {
     title: 'El lugar*',
     required: true,
     needsName: false,
-    cardIcon: '🗺️',
+    cardIcon: '/option-icons/Lugar.webp',
     options: [
       {
         id: 'biblioteca-pasillos',
@@ -478,7 +478,7 @@ export const storyFields: Record<string, StoryField> = {
     title: '¿Qué pasará?',
     required: false,
     needsName: false,
-    cardIcon: '📝',
+    cardIcon: '/option-icons/Que%20pasar%C3%A1.webp',
     inputType: 'text',
     placeholder: 'Ej: El héroe debe encontrar un mapa y ayudar a su amiga.',
     options: [],
@@ -488,11 +488,9 @@ export const storyFields: Record<string, StoryField> = {
     title: 'Idioma*',
     required: true,
     needsName: false,
-    cardIcon: '🌍',
+    cardIcon: '/option-icons/Idioma.webp',
     options: [
       { id: 'es', name: 'Español', icon: '🇪🇸' },
-      { id: 'ca', name: 'Català', icon: '🏴' },
-      { id: 'en', name: 'English', icon: '🇺🇸' },
     ],
   },
   narrator: {
@@ -500,7 +498,7 @@ export const storyFields: Record<string, StoryField> = {
     title: 'El narrador*',
     required: true,
     needsName: false,
-    cardIcon: '🎙️',
+    cardIcon: '/option-icons/Narrador.webp',
     options: [
       { id: 'tXgbXPnsMpKXkuTgvE3h', name: 'Elena', icon: '👩' },
       { id: 'erKgR0s8Y67t4iiHuA9R', name: 'Martin', icon: '👨' },
